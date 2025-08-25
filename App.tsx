@@ -165,7 +165,7 @@ export default function App() {
           <MyPostsScreen
             onBack={goBack}
             onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
-            onNavigateToApplicants={(jobId: string) => navigate('Applicants', { jobId })}
+            onNavigateToApplicants={(postId: string) => navigate('Applicants', { postId })}
             onNavigateToEdit={(jobId: string) => navigate('CreateJobPosting', { editJobId: jobId })}
           />
         );
@@ -173,9 +173,9 @@ export default function App() {
       case 'Applicants':
         return (
           <ApplicantsScreen
-            jobId={params?.jobId}
+            postId={params?.postId}
             onBack={goBack}
-            onNavigateToProfile={(userId: string) => navigate('PublicProfileView', { userId })}
+            onNavigateToProfile={(userId: number) => navigate('PublicProfileView', { userId })}
             onNavigateToChat={() => setCurrentScreen('chat')}
           />
         );
