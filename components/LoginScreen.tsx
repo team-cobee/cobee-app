@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,14 @@ import {
   StyleSheet,
   Image,
   Alert,
+  TextInput,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { AuthStackParamList } from '../types/navigation';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../context/AuthContext';
-
-WebBrowser.maybeCompleteAuthSession();
+import { Button } from './ui/button';
 
 type LoginScreenProps = StackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -66,76 +65,50 @@ const styles = StyleSheet.create({
     height: 48,
     resizeMode: 'contain',
   },
+  devTokenInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  devLoginContainer: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    gap: 8,
+  },
+  devLoginTitle: {
+    textAlign: 'center',
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 4,
+  }
 });
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const { signIn } = useAuth();
+  const [manualToken, setManualToken] = useState('');
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: '948911288824-m7ek0chd2dlpl7dviokv1gmjfasdg165.apps.googleusercontent.com',
-    // For a real app, you should use separate client IDs for each platform.
-    // androidClientId: 'YOUR_ANDROID_CLIENT_ID',
-    // iosClientId: 'YOUR_IOS_CLIENT_ID',
-    webClientId: '948911288824-m7ek0chd2dlpl7dviokv1gmjfasdg165.apps.googleusercontent.com',
-  });
+  const handleDisabledLogin = () => {
+    Alert.alert(
+      '클라이언트 ID 필요',
+      '이 기능을 사용하려면 Google Cloud Console에서 생성한 Android 클라이언트 ID가 필요합니다. 지금은 임시 토큰 로그인을 이용해주세요.'
+    );
+  };
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        // The mobile flow typically uses an authorization code, not an access token directly.
-        // However, if we get an access token, we can try to use it.
-        // Let's assume the backend expects an authorization code.
-        // The property for the code is not directly available in the success response for the implicit flow.
-        // We need to ensure we are using the "code" response type.
-        // The useAuthRequest hook should handle this, but let's check the response.
-
-        // The `code` is often in `response.params.code` when using `responseType: 'code'`
-        const code = response.params.code;
-        if (code) {
-          exchangeCodeForToken(code);
-        } else {
-           Alert.alert('Login Error', 'Could not get authorization code from Google.');
-        }
-      }
-    } else if (response?.type === 'error') {
-      Alert.alert('Login Error', response.error?.message || 'An unknown error occurred');
+  const handleManualSignIn = async () => {
+    if (!manualToken.trim()) {
+      Alert.alert('오류', '토큰을 입력해주세요.');
+      return;
     }
-  }, [response]);
-
-  const exchangeCodeForToken = async (code: string) => {
     try {
-      const res = await fetch('http://localhost:8080/login/oauth2/code/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server error: ${text}`);
-      }
-
-      const json = await res.json();
-
-      if (json.success && json.data.token) {
-        await signIn(json.data.token);
-      } else {
-        throw new Error(json.message || 'Failed to get token from server.');
-      }
+      await signIn(manualToken.trim());
     } catch (e: any) {
-      Alert.alert('Login Failed', e.message || 'An error occurred during login.');
+      Alert.alert('로그인 실패', e.message);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    promptAsync();
-  };
-
-  const handleKakaoLogin = () => {
-    Alert.alert('Not Implemented', 'Kakao Login is not yet implemented.');
   };
 
   const handleNavigateToSignup = () => {
@@ -143,48 +116,68 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/images/cobee-logo.png')}
-          style={styles.logo}
-        />
-        <Text style={styles.subtitle}>
-          완벽한 룸메이트를 찾아보세요
-        </Text>
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{flex: 1}}
+    >
+      <View style={styles.container}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/images/cobee-logo.png')}
+            style={styles.logo}
+          />
+          <Text style={styles.subtitle}>
+            완벽한 룸메이트를 찾아보세요
+          </Text>
+        </View>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          onPress={handleKakaoLogin}
-          activeOpacity={0.8}
-        >
-          <Image
-            source={require('../assets/images/kakao-login.png')}
-            style={styles.kakaoLoginButton}
-          />
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          onPress={handleGoogleLogin}
-          activeOpacity={0.8}
-          disabled={!request}
-        >
-          <Image
-            source={require('../assets/images/google-login.png')}
-            style={styles.googleLoginButton}
-          />
-        </TouchableOpacity>
-        
-        <View style={styles.signupContainer}>
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.signupButton}
-            onPress={handleNavigateToSignup}
+            onPress={handleDisabledLogin}
+            activeOpacity={0.8}
           >
-            <Text style={styles.signupText}>회원가입하기</Text>
+            <Image
+              source={require('../assets/images/kakao-login.png')}
+              style={styles.kakaoLoginButton}
+            />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDisabledLogin}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={require('../assets/images/google-login.png')}
+              style={styles.googleLoginButton}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.signupContainer}>
+            <TouchableOpacity
+              style={styles.signupButton}
+              onPress={handleNavigateToSignup}
+            >
+              <Text style={styles.signupText}>회원가입하기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Temporary Manual Token Login for Testing */}
+        <View style={styles.devLoginContainer}>
+          <Text style={styles.devLoginTitle}>▼ 임시 테스트용 로그인 ▼</Text>
+          <TextInput
+            style={styles.devTokenInput}
+            placeholder="여기에 JWT 토큰을 붙여넣으세요"
+            value={manualToken}
+            onChangeText={setManualToken}
+            autoCapitalize="none"
+            multiline
+          />
+          <Button onPress={handleManualSignIn}>
+            <Text>토큰으로 로그인</Text>
+          </Button>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
