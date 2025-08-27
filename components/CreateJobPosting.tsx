@@ -1,229 +1,229 @@
+import { Gender, MatchStatus, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Dimensions,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Card, CardContent } from './ui/card';
-
-interface CreateJobPostingProps {
-  onBack: () => void;
-  onSuccess: () => void;
-  onComplete: (jobId: string) => void;
-  editJobId?: string | null;
-}
+import apiClient from '../api/client';
 
 const { width } = Dimensions.get('window');
 
+/** 프론트 값 → 서버 enum 문자열 매핑 */
+const toLifestyleEnum = (v: string) =>
+  v === 'morning' ? 'MORNING' : v === 'evening' ? 'NIGHT' : 'NONE';
+const toPersonalityEnum = (v: string) =>
+  v === 'introvert' ? 'INTROVERT' : v === 'extrovert' ? 'EXTROVERT' : 'NONE';
+const toSmokingEnum = (v: string) => {
+  switch (v) {
+    case 'impossible': return 'IMPOSSIBLE';
+    case 'none': return 'NONE';
+    default: return 'NONE';
+  }
+};
+const toSnoringEnum = (v: string) => {
+  switch (v) {
+    case 'impossible': return 'IMPOSSIBLE';
+    case 'none': return 'NONE';
+    default: return 'NONE';
+  }
+};
+const toPetsEnum = (v: string) => {
+  switch (v) {
+    case 'possible': return 'POSSIBLE';
+    case 'impossible': return 'IMPOSSIBLE';
+    default: return 'NONE';
+  }
+};
+
+/** 서버에 보낼 Request 타입(백엔드 RecruitRequest와 1:1) */
+type RecruitRequest = {
+  title: string;
+  recruitCount: number;
+  rentCostMin: number;
+  rentCostMax: number;
+  monthlyCostMin: number;
+  monthlyCostMax: number;
+  minAge: number;
+  maxAge: number;
+  lifestyle: Lifestyle
+  personality: Personality
+  isSmoking: Smoking
+  isSnoring: Snoring
+  isPetsAllowed: Pets
+  hasRoom: boolean;
+  imgUrl: string[];
+  address: string;
+  detailDescription: string;
+  additionalDescription: string;
+};
+
+import { StackScreenProps } from '@react-navigation/stack';
+import { RootStackParamList } from '../types/navigation';
+
+type CreateJobPostingProps = StackScreenProps<RootStackParamList, 'CreateJobPosting'>;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   header: {
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 16, paddingVertical: 12,
   },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#000000',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  spacer: {
-    width: 24,
-    height: 24,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 8,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#e5e7eb',
-  },
-  progressDotActive: {
-    backgroundColor: '#F7B32B',
-  },
-  stepContainer: {
-    gap: 24,
-  },
-  stepHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  stepSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  formSection: {
-    gap: 24,
-  },
-  fieldContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  selectButton: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-  },
-  selectButtonText: {
-    fontSize: 16,
-    color: '#9ca3af',
-  },
-  selectButtonSelected: {
-    borderColor: '#F7B32B',
-    backgroundColor: '#fef3c7',
-  },
-  selectButtonSelectedText: {
-    color: '#374151',
-  },
-  rangeContainer: {
-    gap: 16,
-  },
-  rangeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  rangeInput: {
-    flex: 1,
-  },
-  rangeLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  optionsContainer: {
-    gap: 12,
-  },
+  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600' },
+  spacer: { width: 24, height: 24 },
+  content: { flex: 1, padding: 16 },
+  progressContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24, gap: 8 },
+  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e5e7eb' },
+  progressDotActive: { backgroundColor: '#F7B32B' },
+  stepContainer: { gap: 24 },
+  stepHeader: { alignItems: 'center', marginBottom: 24 },
+  stepTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  stepSubtitle: { fontSize: 14, color: '#6b7280', textAlign: 'center' },
+  formSection: { gap: 24 },
+  fieldContainer: { gap: 8 },
+  label: { fontSize: 14, fontWeight: '500', color: '#374151' },
+  optionsContainer: { gap: 12 },
   optionButton: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8,
+    paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#ffffff',
   },
-  optionButtonSelected: {
-    borderColor: '#F7B32B',
-    backgroundColor: '#fef3c7',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#374151',
-    textAlign: 'center',
-  },
-  nextButtonContainer: {
-    paddingTop: 24,
-    gap: 12,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  buttonFlex: {
-    flex: 1,
+  optionButtonSelected: { borderColor: '#F7B32B', backgroundColor: '#fef3c7' },
+  optionText: { fontSize: 16, color: '#374151', textAlign: 'center' },
+  rangeInputContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rangeInput: { flex: 1 },
+  rangeLabel: { fontSize: 14, color: '#6b7280' },
+  nextButtonContainer: { paddingTop: 24, gap: 12 },
+  buttonRow: { flexDirection: 'row', gap: 12 },
+  buttonFlex: { flex: 1 },
+  urlRow: { flexDirection: 'row', gap: 8 },
+  urlItem: {
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 8, marginTop: 8,
   },
 });
 
-export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJobId }: CreateJobPostingProps) {
+export default function CreateJobPosting({ navigation, route }: CreateJobPostingProps) {
+  const { editJobId } = route.params || {};
   const [step, setStep] = useState(1);
+  const [newImageUrl, setNewImageUrl] = useState('');
+
+  /** 폼 상태(화면 → 서버 요청으로 변환할 로우 데이터) */
   const [formData, setFormData] = useState({
+    // Step 1
     title: '',
     recruitCount: 2,
-    depositMin: 500,
-    depositMax: 2000,
-    monthlyRentMin: 30,
-    monthlyRentMax: 150,
-    preferredGender: '',
+    depositMin: 500,     // → rentCostMin
+    depositMax: 2000,    // → rentCostMax
+    monthlyRentMin: 30,  // → monthlyCostMin
+    monthlyRentMax: 150, // → monthlyCostMax
+
+    // Step 2
     ageMin: 18,
     ageMax: 100,
-    lifestyle: '',
-    personality: '',
-    smokingPreference: '',
-    hasRoom: '',
+    lifestyle: '',       // 'morning' | 'evening' | (기타 → 'NONE')
+    personality: '',     // 'introvert' | 'extrovert' | 'none'
+    smoking: '',         // 'no' | 'yes' | 'any'
+    snoring: '',         // 'no' | 'yes' | 'any'
+    pets: '',            // 'have' | 'nothave' | 'possible' | 'impossible' | 'any'
+
+    // Step 3
+    hasRoom: '',         // 'has' | 'none'
+
+    // Step 4 (주소/좌표)
     address: '',
-    description: '',
+    latitude: '',        // 입력은 string, 제출시 number|null 로 변환
+    longitude: '',
+    distance: '',
+
+    // Step 5 (이미지)
+    images: [] as string[],
+
+    // 추가 설명
+    detailDescription: '',
+    additionalDescription: '',
   });
 
-  const totalSteps = 4;
-  
-  const nextStep = () => {
-    if (step < totalSteps) {
-      setStep(step + 1);
-    } else {
-      handleSubmit();
-    }
-  };
-  
+  const totalSteps = 5;
+
+  const nextStep = () => (step < totalSteps ? setStep(step + 1) : handleSubmit());
   const prevStep = () => setStep(step - 1);
 
-  const handleSubmit = () => {
-    if (editJobId) {
-      Alert.alert('성공', '구인글이 수정되었습니다.');
-      onSuccess();
-    } else {
-      const jobId = 'job_' + Date.now();
-      Alert.alert('성공', '구인글이 등록되었습니다.');
-      onComplete(jobId);
-    }
-  };
-
+  /** 단계별 유효성 검사 */
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return formData.title.length > 0 && formData.recruitCount > 0;
-      case 2:
-        return formData.preferredGender.length > 0;
+        return formData.title.trim().length > 0 && formData.recruitCount > 0;
+      case 2: {
+        const ageOK =
+          Number.isFinite(formData.ageMin) &&
+          Number.isFinite(formData.ageMax) &&
+          formData.ageMin <= formData.ageMax;
+        return (
+          ageOK &&
+          !!formData.lifestyle &&
+          !!formData.personality &&
+          !!formData.smoking &&
+          !!formData.snoring &&
+          !!formData.pets
+        );
+      }
       case 3:
-        return formData.hasRoom.length > 0;
+        return !!formData.hasRoom;
       case 4:
-        return formData.hasRoom === 'none' || formData.address.length > 0;
+        // 방이 있으면 주소 필수, 좌표/거리 선택
+        return formData.hasRoom === 'none' || formData.address.trim().length > 0;
+      case 5:
       default:
         return true;
     }
   };
 
+  /** 제출 → /recruits (POST) */
+  const handleSubmit = async () => {
+    try {
+      const body: RecruitRequest = {
+        title: formData.title,
+        recruitCount: Number(formData.recruitCount),
+        rentCostMin: Number(formData.depositMin),
+        rentCostMax: Number(formData.depositMax),
+        monthlyCostMin: Number(formData.monthlyRentMin),
+        monthlyCostMax: Number(formData.monthlyRentMax),
+        minAge: Number(formData.ageMin),
+        maxAge: Number(formData.ageMax),
+
+        lifestyle: toLifestyleEnum(formData.lifestyle) as RecruitRequest['lifestyle'],
+        personality: toPersonalityEnum(formData.personality) as RecruitRequest['personality'],
+        isSmoking: toSmokingEnum(formData.smoking) as RecruitRequest['isSmoking'],
+        isSnoring: toSnoringEnum(formData.snoring) as RecruitRequest['isSnoring'],
+        isPetsAllowed: toPetsEnum(formData.pets) as RecruitRequest['isPetsAllowed'],
+
+        hasRoom: formData.hasRoom === 'has',
+
+        imgUrl: formData.images,
+
+        address: formData.address,
+        detailDescription: formData.detailDescription,
+        additionalDescription: formData.additionalDescription,
+      };
+
+      const response = await apiClient<{ data?: { postId?: string; id?: string } }>('/recruits', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      const postId = response?.data?.postId ?? response?.data?.id;
+
+      Alert.alert('성공', '구인글이 등록되었습니다.');
+      const finalPostId = String(postId ?? `post_${Date.now()}`);
+      navigation.replace('JobPostingComplete', { jobId: finalPostId });
+    } catch (e: any) {
+      Alert.alert('실패', e?.message ?? '등록 중 오류가 발생했습니다.');
+    }
+  };
+
+  /** ─── Step 1: 기본 정보 ─── */
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
@@ -237,7 +237,7 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
           <Input
             placeholder="ex) 강남역 근처 깔끔한 원룸 룸메이트 구해요"
             value={formData.title}
-            onChangeText={(text) => setFormData({...formData, title: text})}
+            onChangeText={(t) => setFormData({ ...formData, title: t })}
           />
         </View>
 
@@ -249,9 +249,9 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
                 key={count}
                 style={[
                   styles.optionButton,
-                  formData.recruitCount === count && styles.optionButtonSelected
+                  formData.recruitCount === count && styles.optionButtonSelected,
                 ]}
-                onPress={() => setFormData({...formData, recruitCount: count})}
+                onPress={() => setFormData({ ...formData, recruitCount: count })}
               >
                 <Text style={styles.optionText}>{count}명</Text>
               </TouchableOpacity>
@@ -265,16 +265,16 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
             <Input
               style={styles.rangeInput}
               placeholder="최소"
-              value={formData.depositMin.toString()}
-              onChangeText={(text) => setFormData({...formData, depositMin: parseInt(text) || 0})}
+              value={String(formData.depositMin)}
+              onChangeText={(t) => setFormData({ ...formData, depositMin: parseInt(t) || 0 })}
               keyboardType="numeric"
             />
             <Text style={styles.rangeLabel}>~</Text>
             <Input
               style={styles.rangeInput}
               placeholder="최대"
-              value={formData.depositMax.toString()}
-              onChangeText={(text) => setFormData({...formData, depositMax: parseInt(text) || 0})}
+              value={String(formData.depositMax)}
+              onChangeText={(t) => setFormData({ ...formData, depositMax: parseInt(t) || 0 })}
               keyboardType="numeric"
             />
           </View>
@@ -286,16 +286,16 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
             <Input
               style={styles.rangeInput}
               placeholder="최소"
-              value={formData.monthlyRentMin.toString()}
-              onChangeText={(text) => setFormData({...formData, monthlyRentMin: parseInt(text) || 0})}
+              value={String(formData.monthlyRentMin)}
+              onChangeText={(t) => setFormData({ ...formData, monthlyRentMin: parseInt(t) || 0 })}
               keyboardType="numeric"
             />
             <Text style={styles.rangeLabel}>~</Text>
             <Input
               style={styles.rangeInput}
               placeholder="최대"
-              value={formData.monthlyRentMax.toString()}
-              onChangeText={(text) => setFormData({...formData, monthlyRentMax: parseInt(text) || 0})}
+              value={String(formData.monthlyRentMax)}
+              onChangeText={(t) => setFormData({ ...formData, monthlyRentMax: parseInt(t) || 0 })}
               keyboardType="numeric"
             />
           </View>
@@ -304,33 +304,33 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
     </View>
   );
 
+  /** ─── Step 2: 선호/제약 ─── */
   const renderStep2 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>선호 조건</Text>
+        <Text style={styles.stepTitle}>선호/제약 조건</Text>
         <Text style={styles.stepSubtitle}>원하는 룸메이트 조건을 선택해주세요</Text>
       </View>
 
       <View style={styles.formSection}>
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>성별</Text>
-          <View style={styles.optionsContainer}>
-            {[
-              { value: 'male', label: '남성' },
-              { value: 'female', label: '여성' },
-              { value: 'any', label: '상관없음' }
-            ].map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.optionButton,
-                  formData.preferredGender === option.value && styles.optionButtonSelected
-                ]}
-                onPress={() => setFormData({...formData, preferredGender: option.value})}
-              >
-                <Text style={styles.optionText}>{option.label}</Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={styles.label}>나이 범위</Text>
+          <View style={styles.rangeInputContainer}>
+            <Input
+              style={styles.rangeInput}
+              placeholder="최소"
+              value={String(formData.ageMin)}
+              onChangeText={(t) => setFormData({ ...formData, ageMin: parseInt(t) || 0 })}
+              keyboardType="numeric"
+            />
+            <Text style={styles.rangeLabel}>~</Text>
+            <Input
+              style={styles.rangeInput}
+              placeholder="최대"
+              value={String(formData.ageMax)}
+              onChangeText={(t) => setFormData({ ...formData, ageMax: parseInt(t) || 0 })}
+              keyboardType="numeric"
+            />
           </View>
         </View>
 
@@ -340,17 +340,39 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
             {[
               { value: 'morning', label: '아침형' },
               { value: 'evening', label: '저녁형' },
-              { value: 'flexible', label: '유연함' }
-            ].map((option) => (
+              { value: 'flexible', label: '유연함' },
+            ].map((o) => (
               <TouchableOpacity
-                key={option.value}
+                key={o.value}
                 style={[
                   styles.optionButton,
-                  formData.lifestyle === option.value && styles.optionButtonSelected
+                  formData.lifestyle === o.value && styles.optionButtonSelected,
                 ]}
-                onPress={() => setFormData({...formData, lifestyle: option.value})}
+                onPress={() => setFormData({ ...formData, lifestyle: o.value })}
               >
-                <Text style={styles.optionText}>{option.label}</Text>
+                <Text style={styles.optionText}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>성향</Text>
+          <View style={styles.optionsContainer}>
+            {[
+              { value: 'introvert', label: '내향적' },
+              { value: 'extrovert', label: '외향적' },
+              { value: 'none', label: '상관없음' },
+            ].map((o) => (
+              <TouchableOpacity
+                key={o.value}
+                style={[
+                  styles.optionButton,
+                  formData.personality === o.value && styles.optionButtonSelected,
+                ]}
+                onPress={() => setFormData({ ...formData, personality: o.value })}
+              >
+                <Text style={styles.optionText}>{o.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -360,19 +382,61 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
           <Text style={styles.label}>흡연</Text>
           <View style={styles.optionsContainer}>
             {[
-              { value: 'no', label: '비흡연자만' },
-              { value: 'yes', label: '흡연자도 괜찮음' },
-              { value: 'any', label: '상관없음' }
-            ].map((option) => (
+              { value: 'impossible', label: '흡연불가' },
+              { value: 'none', label: '상관없음' },
+            ].map((o) => (
               <TouchableOpacity
-                key={option.value}
+                key={o.value}
                 style={[
                   styles.optionButton,
-                  formData.smokingPreference === option.value && styles.optionButtonSelected
+                  formData.smoking === o.value && styles.optionButtonSelected,
                 ]}
-                onPress={() => setFormData({...formData, smokingPreference: option.value})}
+                onPress={() => setFormData({ ...formData, smoking: o.value })}
               >
-                <Text style={styles.optionText}>{option.label}</Text>
+                <Text style={styles.optionText}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>코골이</Text>
+          <View style={styles.optionsContainer}>
+            {[
+              { value: 'impossible', label: '코골이 불가' },
+              { value: 'none', label: '상관없음' },
+            ].map((o) => (
+              <TouchableOpacity
+                key={o.value}
+                style={[
+                  styles.optionButton,
+                  formData.snoring === o.value && styles.optionButtonSelected,
+                ]}
+                onPress={() => setFormData({ ...formData, snoring: o.value })}
+              >
+                <Text style={styles.optionText}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>반려동물</Text>
+          <View style={styles.optionsContainer}>
+            {[
+              { value: 'possible', label: '가능' },
+              { value: 'impossible', label: '불가능' },
+              { value: 'none', label: '상관없음' },
+            ].map((o) => (
+              <TouchableOpacity
+                key={o.value}
+                style={[
+                  styles.optionButton,
+                  formData.pets === o.value && styles.optionButtonSelected,
+                ]}
+                onPress={() => setFormData({ ...formData, pets: o.value })}
+              >
+                <Text style={styles.optionText}>{o.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -381,6 +445,7 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
     </View>
   );
 
+  /** ─── Step 3: 방 보유 여부 ─── */
   const renderStep3 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
@@ -394,27 +459,21 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
           <View style={styles.optionsContainer}>
             {[
               { value: 'has', label: '방이 있어요', desc: '현재 방이 있고 룸메이트를 구해요', icon: 'home' },
-              { value: 'none', label: '함께 방을 찾아요', desc: '룸메이트와 함께 방을 구해요', icon: 'search' }
-            ].map((option) => (
+              { value: 'none', label: '함께 방을 찾아요', desc: '룸메이트와 함께 방을 구해요', icon: 'search' },
+            ].map((o) => (
               <TouchableOpacity
-                key={option.value}
+                key={o.value}
                 style={[
                   styles.optionButton,
-                  formData.hasRoom === option.value && styles.optionButtonSelected
+                  formData.hasRoom === o.value && styles.optionButtonSelected,
                 ]}
-                onPress={() => setFormData({...formData, hasRoom: option.value})}
+                onPress={() => setFormData({ ...formData, hasRoom: o.value })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <Ionicons 
-                    name={option.icon as any} 
-                    size={20} 
-                    color={formData.hasRoom === option.value ? '#F7B32B' : '#6b7280'} 
-                  />
-                  <Text style={styles.optionText}>{option.label}</Text>
+                  <Ionicons name={o.icon as any} size={20} color={formData.hasRoom === o.value ? '#F7B32B' : '#6b7280'} />
+                  <Text style={styles.optionText}>{o.label}</Text>
                 </View>
-                <Text style={[styles.optionText, { fontSize: 12, color: '#6b7280', marginTop: 4 }]}>
-                  {option.desc}
-                </Text>
+                <Text style={[styles.optionText, { fontSize: 12, color: '#6b7280', marginTop: 4 }]}>{o.desc}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -423,41 +482,105 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
     </View>
   );
 
+  /** ─── Step 4: 주소/좌표/거리 + 상세/추가 설명 ─── */
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>
-          {formData.hasRoom === 'has' ? '방 상세 정보' : '추가 정보'}
-        </Text>
+        <Text style={styles.stepTitle}>{formData.hasRoom === 'has' ? '방 상세 정보' : '추가 정보'}</Text>
         <Text style={styles.stepSubtitle}>
-          {formData.hasRoom === 'has' 
-            ? '방의 위치와 상세 정보를 입력해주세요'
-            : '추가로 전달하고 싶은 내용을 작성해주세요'
-          }
+          {formData.hasRoom === 'has' ? '방의 위치와 상세 정보를 입력해주세요' : '추가로 전달하고 싶은 내용을 작성해주세요'}
         </Text>
       </View>
 
       <View style={styles.formSection}>
         {formData.hasRoom === 'has' && (
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>주소</Text>
-            <Input
-              placeholder="ex) 서울시 강남구 역삼동"
-              value={formData.address}
-              onChangeText={(text) => setFormData({...formData, address: text})}
-            />
-          </View>
+          <>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>주소</Text>
+              <Input
+                placeholder="ex) 서울시 강남구 역삼동"
+                value={formData.address}
+                onChangeText={(t) => setFormData({ ...formData, address: t })}
+              />
+            </View>
+          </>
         )}
 
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>상세 설명 (선택)</Text>
+          <Text style={styles.label}>상세 설명 (detailDescription)</Text>
           <Input
             placeholder="추가로 알려주고 싶은 내용을 자유롭게 작성해주세요"
-            value={formData.description}
-            onChangeText={(text) => setFormData({...formData, description: text})}
+            value={formData.detailDescription}
+            onChangeText={(t) => setFormData({ ...formData, detailDescription: t })}
             multiline
             style={{ height: 100, textAlignVertical: 'top' }}
           />
+        </View>
+
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>추가 설명 (additionalDescription)</Text>
+          <Input
+            placeholder="선택 입력"
+            value={formData.additionalDescription}
+            onChangeText={(t) => setFormData({ ...formData, additionalDescription: t })}
+            multiline
+            style={{ height: 80, textAlignVertical: 'top' }}
+          />
+        </View>
+      </View>
+    </View>
+  );
+
+  /** ─── Step 5: 이미지 URL 리스트 ─── */
+  const renderStep5 = () => (
+    <View style={styles.stepContainer}>
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepTitle}>사진 업로드</Text>
+        <Text style={styles.stepSubtitle}>이미지 URL을 추가해주세요 (여러 개 가능)</Text>
+      </View>
+
+      <View style={styles.formSection}>
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>이미지 URL 추가</Text>
+          <View style={styles.urlRow}>
+            <Input
+              placeholder="https://example.com/image.jpg"
+              value={newImageUrl}
+              onChangeText={setNewImageUrl}
+              style={{ flex: 1 }}
+              autoCapitalize="none"
+            />
+            <Button
+              onPress={() => {
+                const url = newImageUrl.trim();
+                if (!url) return;
+                setFormData({ ...formData, images: [...formData.images, url] });
+                setNewImageUrl('');
+              }}
+            >
+              추가
+            </Button>
+          </View>
+
+          {formData.images.map((url, idx) => (
+            <View key={`${url}-${idx}`} style={styles.urlItem}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ flex: 1, marginRight: 8 }} numberOfLines={1}>{url}</Text>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={() =>
+                    setFormData({
+                      ...formData,
+                      images: formData.images.filter((_, i) => i !== idx),
+                    })
+                  }
+                >
+                  삭제
+                </Button>
+              </View>
+            </View>
+          ))}
         </View>
       </View>
     </View>
@@ -469,6 +592,7 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
       case 2: return renderStep2();
       case 3: return renderStep3();
       case 4: return renderStep4();
+      case 5: return renderStep5();
       default: return renderStep1();
     }
   };
@@ -478,27 +602,19 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
       {/* 헤더 */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={onBack}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {editJobId ? '구인글 수정' : '구인글 등록'}
-          </Text>
+          <Text style={styles.headerTitle}>{editJobId ? '구인글 수정' : '구인글 등록'}</Text>
           <View style={styles.spacer} />
         </View>
       </View>
 
       <ScrollView style={styles.content}>
-        {/* 진행 상황 */}
+        {/* 진행 상황(5단계) */}
         <View style={styles.progressContainer}>
           {Array.from({ length: totalSteps }, (_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressDot,
-                i + 1 <= step && styles.progressDotActive
-              ]}
-            />
+            <View key={i} style={[styles.progressDot, i + 1 <= step && styles.progressDotActive]} />
           ))}
         </View>
 
@@ -509,19 +625,11 @@ export default function CreateJobPosting({ onBack, onSuccess, onComplete, editJo
         <View style={styles.nextButtonContainer}>
           <View style={styles.buttonRow}>
             {step > 1 && (
-              <Button
-                variant="outline"
-                onPress={prevStep}
-                style={styles.buttonFlex}
-              >
+              <Button variant="outline" onPress={prevStep} style={styles.buttonFlex}>
                 이전
               </Button>
             )}
-            <Button
-              onPress={nextStep}
-              disabled={!isStepValid()}
-              style={step > 1 ? styles.buttonFlex : undefined}
-            >
+            <Button onPress={nextStep} disabled={!isStepValid()} style={step > 1 ? styles.buttonFlex : undefined}>
               {step === totalSteps ? '완료' : '다음'}
             </Button>
           </View>

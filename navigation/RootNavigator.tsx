@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from '../types/navigation';
+import { useAuth } from '../context/AuthContext';
 import AuthStack from './AuthStack';
 import MainTabs from './MainTabs';
 
@@ -25,7 +26,7 @@ const NotificationSettingsScreen = React.lazy(() => import('../components/Notifi
 const Stack = createStackNavigator<RootStackParamList>();
 
 // Loading component
-function LoadingFallback() {
+function LoadingScreen() {
   return (
     <View style={{ 
       flex: 1, 
@@ -39,18 +40,21 @@ function LoadingFallback() {
         fontSize: 16, 
         color: '#6b7280' 
       }}>
-        로딩 중...
+        세션 확인 중...
       </Text>
     </View>
   );
 }
 
 export default function RootNavigator() {
-  // Mock authentication state - replace with real auth logic
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const { token, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    <Suspense fallback={<LoadingScreen />}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -70,9 +74,7 @@ export default function RootNavigator() {
           gestureDirection: 'horizontal',
         }}
       >
-        {!isAuthenticated ? (
-          <Stack.Screen name="Auth" component={AuthStack} />
-        ) : (
+        {token ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen 
@@ -187,6 +189,8 @@ export default function RootNavigator() {
               }}
             />
           </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthStack} />
         )}
       </Stack.Navigator>
     </Suspense>

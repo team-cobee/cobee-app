@@ -1,3 +1,4 @@
+// 수정 X
 import React, { useState } from 'react';
 import {
   View,
@@ -269,8 +270,8 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   const handleLeaveRoom = () => {
     Alert.alert('알림', '채팅방을 나갔습니다');
     setShowLeaveRoomModal(false);
-    onLeaveChatRoom();
-    onBack();
+    onLeaveChatRoom?.();
+    onBack?.();
   };
 
   return (

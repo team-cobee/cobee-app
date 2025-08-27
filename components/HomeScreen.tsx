@@ -10,12 +10,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { StackScreenProps } from '@react-navigation/stack';
+import { MainTabParamList, RootStackParamList } from '../types/navigation';
 
-interface HomeScreenProps {
-  onNavigateToJob?: (jobId: string) => void;
-  onNavigateToCreateJob?: () => void;
-  onNavigateToBookmarks?: () => void;
-}
+type HomeScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Home'>,
+  StackScreenProps<RootStackParamList>
+>;
 
 const styles = StyleSheet.create({
   container: {
@@ -263,7 +266,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function HomeScreen({ onNavigateToJob, onNavigateToCreateJob, onNavigateToBookmarks }: HomeScreenProps) {
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [bookmarkedJobs, setBookmarkedJobs] = useState<Set<string>>(new Set(['2']));
 
   const toggleBookmark = (jobId: string) => {
@@ -423,7 +426,7 @@ export default function HomeScreen({ onNavigateToJob, onNavigateToCreateJob, onN
             <TouchableOpacity 
               key={job.id} 
               style={styles.jobCard}
-              onPress={() => onNavigateToJob?.(job.id)}
+              onPress={() => navigation.navigate('JobPostingDetail', { jobId: job.id })}
             >
               <View style={styles.jobCardContent}>
                 <View style={styles.jobHeader}>
@@ -507,14 +510,14 @@ export default function HomeScreen({ onNavigateToJob, onNavigateToCreateJob, onN
       <View style={styles.actionSection}>
         <View style={styles.actionButtons}>
           <TouchableOpacity 
-            onPress={() => onNavigateToCreateJob?.()}
+            onPress={() => navigation.navigate('CreateJobPosting', {})}
             style={[styles.actionButton, styles.primaryButton]}
           >
             <Ionicons name="add" size={16} color="white" />
             <Text style={styles.actionButtonText}>구인글 등록</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            onPress={() => onNavigateToBookmarks?.()}
+            onPress={() => navigation.navigate('BookmarkList')}
             style={[styles.actionButton, styles.secondaryButton]}
           >
             <Ionicons name="bookmark-outline" size={16} color="#6b7280" />

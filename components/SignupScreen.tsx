@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,13 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StackScreenProps } from '@react-navigation/stack';
+import { AuthStackParamList } from '../types/navigation';
 import { Card, CardContent, CardHeader } from './ui/card';
 
-interface SignupScreenProps {
-  onSignup?: () => void;
-  onBack?: () => void;
-  onComplete?: () => void;
-}
+type SignupScreenProps = StackScreenProps<AuthStackParamList, 'Signup'>;
 
-export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScreenProps) {
+export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     // 매칭 선호도 설정
@@ -1065,8 +1063,11 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
 
             <TouchableOpacity 
               onPress={() => {
-                onSignup?.();
-                onComplete?.();
+                // In a real app, you would call a function to finalize the registration,
+                // get a token, and then call a signIn function from an AuthContext.
+                // For now, we will just log a message.
+                console.log('Signup complete. Navigating to main app...');
+                // This will be replaced by authContext.signIn(token);
               }}
               style={{
                 width: '100%',
@@ -1097,7 +1098,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
         borderBottomColor: '#e5e7eb',
         paddingTop: 50
       }}>
-        <TouchableOpacity onPress={step === 1 ? onBack : prevStep}>
+        <TouchableOpacity onPress={step === 1 ? () => navigation.goBack() : prevStep}>
           <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: '600' }}>
