@@ -1,3 +1,4 @@
+import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import React, { useState } from 'react';
 import {
   View,
@@ -15,6 +16,27 @@ interface HomeScreenProps {
   onNavigateToJob?: (jobId: string) => void;
   onNavigateToCreateJob?: () => void;
   onNavigateToBookmarks?: () => void;
+}
+
+interface RecruitResponse{
+  id : number,
+  title: string;
+  authorName : string,
+  createdBefore : number, // n 시간전
+  address: string;
+  rentCostMin: number;
+  rentCostMax: number;
+  monthlyCostMin: number;
+  monthlyCostMax: number;
+  hasRoom: boolean;  // true : 방있음, false : 함께 찾기 
+  lifestyle?: Lifestyle;
+  personality?: Personality
+  isSmoking?: Smoking
+  isSnoring?: Snoring
+  isPetsAllowed?: Pets
+  recruitCount : number
+  authorAgeRange : string;   // 20대 초반...
+  authorGender : Gender
 }
 
 const styles = StyleSheet.create({
