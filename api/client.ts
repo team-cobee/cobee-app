@@ -1,7 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'user_auth_token';
-const API_BASE_URL = 'http://localhost:8080';
+// For Android Emulator, 10.0.2.2 is the host machine's localhost.
+// For iOS Simulator, 'http://localhost:8080' should work.
+// For a physical device, use your machine's local network IP address.
+const API_BASE_URL = 'http://10.0.2.2:8080';
 
 interface ApiClientOptions extends RequestInit {
   // We can add custom options here in the future
