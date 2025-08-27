@@ -128,7 +128,7 @@ export default function ApplicantsScreen({
     total: applicants.length,
     // 검토중 = ON_WAIT
     pending: by(MatchStatus.OnWait),
-    // 승인됨 = MATCHING (+ 필요하면 최종매칭도 함께 집계)
+    // 승인됨 = MATCHING
     accepted: by(MatchStatus.Matching),
     // 완전 매칭 
     matched: by(MatchStatus.Matched),
