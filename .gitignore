@@ -38,3 +38,7 @@ yarn-error.*
 
 .claude
 Guidelines.md
+
+.idea
+
+.env

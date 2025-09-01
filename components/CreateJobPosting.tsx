@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { api } from '../api/api';
 
 const API_BASE_URL = 'http://localhost:8080';
 const { width } = Dimensions.get('window');
@@ -211,29 +212,14 @@ export default function CreateJobPosting({
         additionalDescription: formData.additionalDescription,
       };
 
-      const res = await fetch(`${API_BASE_URL}/recruits`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // 토큰 기반 인증이 있다면:
-          // Authorization: `Bearer ${token}`,
-        },
-        // 웹에서 쿠키 세션을 쓴다면:
-        // credentials: 'include',
-        body: JSON.stringify(body),
-      });
+      const res = await api.post('/recruits', body);
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`서버 오류(${res.status}) ${text}`);
-      }
-
-      const json = await res.json();
-      const data = json?.data ?? json; // ApiResponse 래퍼 대응
-      //const postId = data?.postId ?? data?.id;
+      const data = res.data?.data ?? res.data;
+      const postId = data?.postId ?? data?.id;
 
       Alert.alert('성공', '구인글이 등록되었습니다.');
-     // onComplete(String(postId ?? `post_${Date.now()}`));
+      onComplete(String(postId ?? `post_${Date.now()}`));
+      
     } catch (e: any) {
       Alert.alert('실패', e?.message ?? '등록 중 오류가 발생했습니다.');
     }
