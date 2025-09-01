@@ -114,7 +114,7 @@ export default function App() {
       case 'JobPostingDetail':
         return (
           <JobPostingDetail
-            jobId={params?.jobId || '1'}
+            jobId={params?.jobId || 1}
             onBack={goBack}
           />
         );
@@ -235,7 +235,7 @@ export default function App() {
         case 'home':
           return (
             <HomeScreen
-              onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
+              onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
               onNavigateToCreateJob={() => navigate('CreateJobPosting')}
               onNavigateToBookmarks={() => navigate('BookmarkList')}
             />

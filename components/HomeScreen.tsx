@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/api/api';
 
 interface HomeScreenProps {
-  onNavigateToJob?: (jobId: string) => void;
+  onNavigateToJob?: (jobId: number) => void;
   onNavigateToCreateJob?: () => void;
   onNavigateToBookmarks?: () => void;
 }
@@ -162,7 +162,7 @@ export default function HomeScreen({
       <TouchableOpacity
         key={job.id}
         style={styles.jobCard}
-        onPress={() => console.log('구인글 상세로 이동', job.id)}
+        onPress={() => onNavigateToJob?.(job.id)}
       >
         <View style={styles.jobCardContent}>
           {/* 제목 */}
