@@ -50,8 +50,8 @@ export default function HomeScreen({
   useEffect(() => {
     const fetchRecruits = async () => {
       try {
-        const res = await api.get('/recruit'); // @GetMapping("")
-        setRecruits(res.data.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
+        const res = await api.get('/recruits'); // @GetMapping("")
+        setRecruits(res.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
       } catch (error) {
         console.error(error);
         Alert.alert('에러', '구인글을 불러오지 못했습니다');
@@ -145,49 +145,54 @@ export default function HomeScreen({
       </View>
 
       {/* 추천 구인글 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>추천 구인글</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {recommendedJobs.map((job) => (
-            <TouchableOpacity
-              key={job.id}
-              style={styles.jobCard}
-              onPress={() => onNavigateToJob?.(job.id)}
-            >
-              <View style={styles.jobCardContent}>
-                {/* 헤더: 제목 + 하트 */}
-                <View style={styles.jobHeader}>
-                  <Text style={styles.jobTitle}>{job.title}</Text>
-                  <TouchableOpacity
-                    onPress={() => toggleBookmark(job.id)}
-                    style={styles.bookmarkButton}
-                  >
-                    <Text
-                      style={[
-                        styles.heartIcon,
-                        bookmarkedJobs.has(job.id) && styles.heartFilled,
-                      ]}
-                    >
-                      ♥
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+      <ScrollView style={styles.container}>
+      <Text style={styles.sectionTitle}>추천 구인글</Text>
 
-                <Text style={styles.jobLocation}>{job.location}</Text>
-                <Text style={styles.jobPrice}>월 {job.monthlyRent}만원</Text>
+      {recruits.map((job) => (
+        <TouchableOpacity
+          key={job.id}
+          style={styles.jobCard}
+          onPress={() => console.log('구인글 상세로 이동', job.id)}
+        >
+          <View style={styles.jobCardContent}>
+            {/* 제목 */}
+            <Text style={styles.jobTitle}>{job.title}</Text>
 
-                <View style={styles.tagsContainer}>
-                  {job.tags.map((tag) => (
-                    <View key={tag} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
+            {/* 주소 */}
+            <Text style={styles.jobLocation}>{job.address}</Text>
+
+            {/* 월세 */}
+            <Text style={styles.jobPrice}>
+              월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
+            </Text>
+
+            {/* 태그 */}
+            <View style={styles.tagsContainer}>
+              {job.isSmoking && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+              )}
+              {job.isPetsAllowed && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
+                </View>
+              )}
+              {job.personality && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>성격: {job.personality}</Text>
+                </View>
+              )}
+              {job.lifestyle && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
 
       {/* 최신 소식 */}
       <View style={styles.section}>

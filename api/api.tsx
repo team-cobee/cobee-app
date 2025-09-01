@@ -12,19 +12,17 @@
 //   return config;
 // });
 
-import { API_BASE_URL, DEV_TOKEN } from '@env';
+//import { API_BASE_URL, DEV_TOKEN } from '@env';
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: API_BASE_URL, // 맥북 IP
+  baseURL: "http://172.20.5.113:8080",
   timeout: 10_000,
 });
-
-// 개발/테스트용: 로그인해서 받은 토큰을 직접 넣어두기
+const DEV_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiYXV0aCI6IlJPTEVfVVNFUiIsImV4cCI6MTc1Njc0MDU5MH0.xaZojqLSqXeS_Nv7V6WjWGLUDKaSKP8MYp31VQife14";
 api.interceptors.request.use((config) => {
   if (DEV_TOKEN) {
     config.headers.Authorization = `Bearer ${DEV_TOKEN}`;
   }
   return config;
 });
-
