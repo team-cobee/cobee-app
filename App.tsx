@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 // Lazy loaded components for dynamic rendering
-const HomeScreen = lazy(() => import('./components/HomeScreen'));
+const HomeScreen = lazy(() => import('./components/HomeScreen copy'));
 const JobPostingDetail = lazy(() => import('./components/JobPostingDetail'));
 const ChatScreen = lazy(() => import('./components/ChatScreen'));
 const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
