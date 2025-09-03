@@ -8,11 +8,52 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { Double } from 'react-native/Libraries/Types/CodegenTypes';
+import { Gender, Lifestyle, Personality, Pets, RecruitStatus, Smoking, Snoring } from '@/types/enums';
 
 interface MatchingStatusScreenProps {
   onBack: () => void;
   onNavigateToJob: (jobId: string) => void;
 }
+
+interface RecruitResponse{
+  postId : number,
+  title: string,
+  viewed : number,
+  bookmarked : number,
+  createdAt : string,
+  status : RecruitStatus,
+
+  authorName : string,
+  authorGender : Gender,
+  birthdate : string,
+
+  recruitCount : number
+  hasRoom: boolean;  // true : 방있음, false : 함께 찾기
+  rentalCostMin: number;
+  rentalCostMax: number;
+  monthlyCostMin: number;
+  monthlyCostMax: number;
+
+  preferedGender : Gender,
+  preferedMinAge : number,
+  preferedMaxAge : number,
+  preferedLifeStyle?: Lifestyle;
+  preferedPersonality?: Personality
+  preferedSmoking?: Smoking
+  preferedSnoring?: Snoring
+  preferedHasPet?: Pets,
+
+  address : string,
+  latitude : Double,
+  longitude : Double,
+
+  detailDescript : string,
+  additionalDescript : string,
+
+   imgUrl: string[] | null;
+}
+
 
 export default function MatchingStatusScreen({ onBack, onNavigateToJob }: MatchingStatusScreenProps) {
   const [activeTab, setActiveTab] = useState('applied');
