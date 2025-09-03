@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '@/api/api';
 import {
   View,
   Text,
@@ -13,6 +14,7 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
+import { Gender } from '@/types/enums';
 
 interface ProfileScreenProps {
   onLogout?: () => void;
@@ -180,6 +182,8 @@ export default function ProfileScreen({
 }: ProfileScreenProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [userInfo, setUserInfo] = useState<user | null>(null);
+  const [activity, setActivity] = useState<stats | null>(null);
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -199,22 +203,57 @@ export default function ProfileScreen({
     onWithdraw();
   };
 
-  const user = {
-    name: '김철수',
-    email: 'chulsoo@example.com',
-    avatar: '/avatar.jpg',
-    age: 25,
-    gender: '남성',
-    location: '서울 강남구',
-    verificationStatus: '인증완료',
-    joinDate: '2024.01.15'
+  interface user {
+    name: string;
+    email: string;
+    avatar: string;
+    age: number;
+    gender: Gender;
   };
 
-  const stats = {
-    myPosts: 3,
-    bookmarks: 12,
-    matches: 5
+  interface ocr {
+    verificationStatus: Boolean; // check
+  }
+
+  interface stats {
+    myPosts: number;
+    bookmarks: number;
+    matches: number;
   };
+
+  useEffect( () => {
+    const fetchMyInfo = async () => {
+          try {
+            const res = await api.get('/public-profiles');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
+            setUserInfo(res.data.data);
+          } catch (error) {
+            console.error(error);
+            Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
+          }
+        }
+    }
+  ), []; 
+
+  // ocr 호출 api 
+
+
+
+  // activity 호출 api 
+  useEffect( () => {
+    const fetchMyActivity = async () => {
+          try {
+            const res = await api.get('/public-profiles/activity');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
+            setActivity(res.data.data);
+          } catch (error) {
+            console.error(error);
+            Alert.alert('에러', '사용자 활동 정보를 불러오지 못했습니다.');
+          }
+        }
+    }
+  ), []; 
+  
+  
+
 
   return (
     <View style={styles.container}>
@@ -234,18 +273,17 @@ export default function ProfileScreen({
         <Card>
           <CardContent style={{ padding: 24 }}>
             <View style={styles.profileSection}>
-              <Avatar style={{ width: 64, height: 64 }}>
-                <AvatarFallback>{user.name[0]}</AvatarFallback>
-              </Avatar>
+              {/* <Avatar style={{ width: 64, height: 64 }}>
+                <AvatarFallback>{user.name}</AvatarFallback>
+              </Avatar> */}
               <View style={styles.profileInfo}>
-                <Text style={styles.userName}>{user.name}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                <Text style={styles.userDetails}>{user.age}세 • {user.gender} • {user.location}</Text>
-                <Text style={styles.userDetails}>가입일: {user.joinDate}</Text>
+                <Text style={styles.userName}>{userInfo?.name}</Text>
+                <Text style={styles.userEmail}>{userInfo?.email}</Text>
+                <Text style={styles.userDetails}>{userInfo?.age}세 • {userInfo?.gender}</Text>
                 <Badge variant="default" style={styles.verificationBadge}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="checkmark-circle" size={14} color="#10b981" />
-                    <Text style={{ color: '#10b981', fontSize: 12 }}>{user.verificationStatus}</Text>
+                    {/* <Text style={{ color: '#10b981', fontSize: 12 }}>{userInfo?.verificationStatus}</Text> */}
                   </View>
                 </Badge>
               </View>
@@ -254,15 +292,15 @@ export default function ProfileScreen({
             {/* 통계 */}
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.myPosts}</Text>
+                <Text style={styles.statNumber}>{activity?.myPosts}</Text>
                 <Text style={styles.statLabel}>내 구인글</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.bookmarks}</Text>
+                <Text style={styles.statNumber}>{activity?.bookmarks}</Text>
                 <Text style={styles.statLabel}>북마크</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.matches}</Text>
+                <Text style={styles.statNumber}>{activity?.matches}</Text>
                 <Text style={styles.statLabel}>매칭</Text>
               </View>
             </View>
