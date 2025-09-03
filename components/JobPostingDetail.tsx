@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
+import React, { useState, useEffect } from 'react';
+import { api } from '@/api/api';
+import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets, RecruitStatus } from '@/types/enums';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Double } from 'react-native/Libraries/Types/CodegenTypes';
 
 // --- UI 컴포넌트 재구현 ---
 
@@ -53,11 +55,12 @@ const AvatarFallback = ({ children, style }: { children: React.ReactNode; style?
 
 // --- 인터페이스 정의 ---
 interface Comment {
-  id: number;
-  author: string;
-  content: string;
-  timeAgo: string;
-  replies?: Reply[];
+  commentId : number,
+  parentId : number | null,
+  content : string,
+  nickname : string,
+  profileImg : string | null;
+          
 }
 
 interface Reply {
@@ -68,185 +71,249 @@ interface Reply {
 }
 
 interface RecruitResponse{
-  id : number,
-  title: string;
+  postId : number,
+  title: string,
+  viewed : number,
+  bookmarked : number,
+  createdAt : string,
+  status : RecruitStatus,
+
   authorName : string,
-  createdBefore : number, // n 시간전
-  address: string;
-  rentCostMin: number;
-  rentCostMax: number;
+  authorGender : Gender,
+  birthdate : string,
+
+  recruitCount : number
+  hasRoom: boolean;  // true : 방있음, false : 함께 찾기
+  rentalCostMin: number;
+  rentalCostMax: number;
   monthlyCostMin: number;
   monthlyCostMax: number;
-  hasRoom: boolean;  // true : 방있음, false : 함께 찾기 
-  lifestyle?: Lifestyle;
-  personality?: Personality
-  isSmoking?: Smoking
-  isSnoring?: Snoring
-  isPetsAllowed?: Pets
-  recruitCount : number
-  authorAgeRange : string;   // 20대 초반...
-  authorGender : Gender
+
+  preferedGender : Gender,
+  preferedMinAge : number,
+  preferedMaxAge : number,
+  preferedLifeStyle?: Lifestyle;
+  preferedPersonality?: Personality
+  preferedSmoking?: Smoking
+  preferedSnoring?: Snoring
+  preferedHasPet?: Pets,
+
+  address : string,
+  latitude : Double,
+  longitude : Double,
+
+  detailDescript : string,
+  additionalDescript : string,
+
+   imgUrl: string[] | null;
 }
 
 
 interface JobPostingDetailProps {
-  jobId: string | null;
+  jobId: number | null;
   onBack: () => void;
-  onEdit?: (jobId: string) => void;
-  onDelete?: (jobId: string) => void;
+  onEdit?: (jobId: number) => void;
+  onDelete?: (jobId: number) => void;
   showEditButtons?: boolean;
+}
+
+function getAge(birthdate: string): number {
+  const birthYear = new Date(birthdate).getFullYear();
+  const currentYear = new Date().getFullYear();
+  
+  return currentYear - birthYear + 1;
 }
 
 
 
 // --- 메인 컴포넌트 ---
-export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, showEditButtons = false }: JobPostingDetailProps) {
+export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, showEditButtons}: JobPostingDetailProps) {
+  const editButtons = showEditButtons ?? false; 
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [comments, setComments] = useState<Comment[]>([
-    {
-      id: 1,
-      author: "박지은",
-      content: "안녕하세요! 혹시 여성도 지원 가능한가요?",
-      timeAgo: "1시간 전",
-      replies: [
-        {
-          id: 11,
-          author: "김민수",
-          content: "네! 성별 상관없이 지원 가능합니다 😊",
-          timeAgo: "30분 전"
-        }
-      ]
-    },
-    {
-      id: 2,
-      author: "이준혁",
-      content: "위치가 정말 좋네요. 더 자세한 정보 알 수 있을까요?",
-      timeAgo: "3시간 전"
-    }
-  ]);
+  const [comments, setComments] = useState<Comment[]>([]);
+    
   const [newComment, setNewComment] = useState('');
   const [newReply, setNewReply] = useState('');
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recruit, setRecruit] = useState<RecruitResponse | null>(null);
 
-  // 목 데이터 함수 (변경 없음)
-  const getJobDetailData = (jobId: string | null) => {
-    if (jobId === 'no-room') {
-      return {
-        id: 'no-room',
-        title: "홍대 근처에서 함께 방 찾을 룸메이트 구해요",
-        author: { nickname: "이서연", gender: "여성", age: "20대 초반", avatar: "이서" },
-        recruitCount: 2, depositMin: 1000, depositMax: 1500, monthlyRentMin: 50, monthlyRentMax: 80,
-        preferredGender: "female", ageMin: 20, ageMax: 28, lifestyle: "evening", personality: "outgoing",
-        smokingPreference: "no-smoking", snoringPreference: "no-snoring", petPreference: "any",
-        hasRoom: "none", address: "",
-        description: `안녕하세요! 홍대 근처에서 함께 방을 찾을 룸메이트를 구하고 있습니다.\n\n저는 현재 대학생이고, 주로 저녁 시간대에 활동적인 편입니다. 친구들과 어울리는 것을 좋아하지만 집에서는 서로의 프라이버시를 존중하며 지내고 싶어요.\n\n홍대, 합정, 상수 근처로 투룸이나 원룸 2개를 생각하고 있습니다. 대중교통이 편리하고 주변에 편의시설이 많은 곳이면 좋겠어요.`,
-        additionalInfo: `희망 지역: 홍대입구역, 합정역, 상수역 근처 (도보 10분 이내)\n선호 조건: 신축 또는 리모델링 건물, 분리형 원룸 또는 투룸\n추가 요청: 애완동물 동반 가능한 곳 (작은 강아지 1마리)`,
-        location: "서울 마포구 홍대 일대", status: "모집중", createdAt: "2024-08-04T08:30:00Z",
-        viewCount: 32, bookmarkCount: 12, room: { hasRoom: false, images: [] }
-      };
-    } else {
-      return {
-        id: jobId || "1",
-        title: "강남역 근처 깔끔한 원룸 룸메이트 구해요",
-        author: { nickname: "김민수", gender: "남성", age: "20대 중반", avatar: "KM" },
-        recruitCount: 3, depositMin: 800, depositMax: 1200, monthlyRentMin: 60, monthlyRentMax: 80,
-        preferredGender: "any", ageMin: 22, ageMax: 30, lifestyle: "morning", personality: "homebody",
-        smokingPreference: "no-smoking", snoringPreference: "any", petPreference: "impossible",
-        hasRoom: "has", address: "서울 강남구 역삼동 123-45",
-        description: `안녕하세요! 강남역에서 도보 5분 거리에 있는 깔끔한 원룸에서 함께 살 룸메이트를 찾고 있습니다.\n\n저는 평일에는 회사에 다니고 있어서 주로 저녁 시간과 주말에만 집에 있습니다. 깔끔하고 조용한 성격이라 서로 불편함 없이 생활할 수 있을 것 같아요.\n\n매일 아침 7시에 출근해서 저랑 비슷한 시간대에 출근하시는 분이면 좋을 것 같습니다.`,
-        additionalInfo: `주변에 편의시설이 많고, 지하철역과 가까워서 교통이 편리합니다.\n가구/가전 완비되어 있어서 짐만 가져오시면 바로 생활 가능합니다.`,
-        location: "서울 강남구 역삼동", status: "모집중", createdAt: "2024-08-04T10:00:00Z",
-        viewCount: 47, bookmarkCount: 8,
-        room: {
-          hasRoom: true,
-          images: [
-            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop",
-            "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop"
-          ]
-        }
-      };
-    }
-  };
+  useEffect(() => {
+    if (jobId == null) return;
 
-  const jobDetail = getJobDetailData(jobId);
+    let cancelled = false;
+    setRecruit(null);     // ★ 이전 글 제목이 잠깐 보이는 것 방지
+    setComments([]);      // ★ 이전 댓글 잔상 방지
+
+    (async () => {
+      try {
+        const res = await api.get(`/recruits/${jobId}`);
+        if (cancelled) return;
+        const data = res.data?.data;
+        setRecruit(data ?? null);
+        setComments(Array.isArray(data?.comments) ? data.comments : []);
+      } catch (e) {
+        if (!cancelled) Alert.alert('에러', '구인글을 불러오지 못했습니다');
+      }
+    })();
+
+    return () => { cancelled = true; }; // ★ 이전 요청 무시
+  }, [jobId]);
+
+
 
   // 헬퍼 함수들 (변경 없음)
-  const getGenderText = (gender: string) => ({ male: '남자', female: '여자', any: '상관없음' }[gender] || gender);
-  const getLifestyleText = (lifestyle: string) => ({ morning: '아침형', evening: '저녁형' }[lifestyle] || lifestyle);
-  const getPersonalityText = (personality: string) => ({ homebody: '집순이', outgoing: '밖순이' }[personality] || personality);
-  const getSmokingText = (smoking: string) => ({ 'no-smoking': '흡연 불가', any: '상관없음' }[smoking] || smoking);
-  const getSnoringText = (snoring: string) => ({ any: '상관없음', 'no-snoring': '코골이 불가' }[snoring] || snoring);
-  const getPetText = (pet: string) => ({ possible: '가능', impossible: '불가능', any: '상관없음' }[pet] || pet);
-  const getRoomStatusText = (hasRoom: string) => ({ has: '방 있음', none: '함께 찾기' }[hasRoom] || hasRoom);
+  // const getGenderText = (gender: Gender) => ({ Gender.Male: '남자', FEMALE: '여자', any: '상관없음' }[gender] || gender);
+  // const getLifestyleText = (lifestyle: string) => ({ MORNING: '아침형', evening: '저녁형' }[lifestyle] || lifestyle);
+  // const getPersonalityText = (personality: string) => ({ homebody: '집순이', outgoing: '밖순이' }[personality] || personality);
+  // const getSmokingText = (smoking: string) => ({ 'no-smoking': '흡연 불가', any: '상관없음' }[smoking] || smoking);
+  // const getSnoringText = (snoring: string) => ({ any: '상관없음', 'no-snoring': '코골이 불가' }[snoring] || snoring);
+  // const getPetText = (pet: string) => ({ possible: '가능', impossible: '불가능', any: '상관없음' }[pet] || pet);
+  // const getRoomStatusText = (hasRoom: Boolean) => ({ true: '방 있음', false: '함께 찾기' });
+  // Gender
+const getGenderText = (gender: Gender) => {
+  const map: Record<Gender, string> = {
+    [Gender.Male]: '남자',
+    [Gender.Female]: '여자',
+    [Gender.None]: '상관없음',
+  };
+  return map[gender] ?? gender;
+};
+
+// Lifestyle
+const getLifestyleText = (lifestyle?: Lifestyle) => {
+  if (!lifestyle) return '상관없음';
+  const map: Record<Lifestyle, string> = {
+    [Lifestyle.Morning]: '아침형',
+    [Lifestyle.Evening]: '저녁형',
+    [Lifestyle.None]: '상관없음',
+  };
+  return map[lifestyle] ?? lifestyle;
+};
+
+// Personality
+const getPersonalityText = (personality?: Personality) => {
+  if (!personality) return '상관없음';
+  const map: Record<Personality, string> = {
+    [Personality.Introvert]: '집순이',
+    [Personality.Extrovert]: '밖순이',
+    [Personality.None]: '상관없음',
+  };
+  return map[personality] ?? personality;
+};
+
+// Smoking
+const getSmokingText = (smoking?: Smoking) => {
+  if (!smoking) return '상관없음';
+  const map: Record<Smoking, string> = {
+    [Smoking.Smoke]: '흡연 가능',
+    [Smoking.NotSmoke]: '비흡연',
+    [Smoking.Impossible]: '흡연 불가',
+    [Smoking.None]: '상관없음',
+  };
+  return map[smoking] ?? smoking;
+};
+
+// Snoring
+const getSnoringText = (snoring?: Snoring) => {
+  if (!snoring) return '상관없음';
+  const map: Record<Snoring, string> = {
+    [Snoring.Snore]: '코골이 있음',
+    [Snoring.NoSnore]: '코골이 없음',
+    [Snoring.Impossible]: '코골이 불가',
+    [Snoring.None]: '상관없음',
+  };
+  return map[snoring] ?? snoring;
+};
+
+// Pets
+const getPetText = (pet?: Pets) => {
+  if (!pet) return '상관없음';
+  const map: Record<Pets, string> = {
+    [Pets.Have]: '있음',
+    [Pets.NotHave]: '없음',
+    [Pets.Possible]: '가능',
+    [Pets.Impossible]: '불가능',
+    [Pets.None]: '상관없음',
+  };
+  return map[pet] ?? pet;
+};
+
+// RoomStatus
+const getRoomStatusText = (hasRoom: boolean) => (hasRoom ? '방 있음' : '함께 찾기');
+
 
   // 핸들러 함수들 (React Native에 맞게 수정)
-  const nextImage = () => {
-    if (jobDetail.room.images.length > 0) {
-      setCurrentImageIndex((prev) => prev === jobDetail.room.images.length - 1 ? 0 : prev + 1);
-    }
-  };
+  // const nextImage = () => {
+  //   if (recruit?.hasRoom) {
+  //     setCurrentImageIndex((prev) => prev === recruit.imgUrl.length - 1 ? 0 : prev + 1);
+  //   }
+  // };
 
-  const prevImage = () => {
-    if (jobDetail.room.images.length > 0) {
-      setCurrentImageIndex((prev) => prev === 0 ? jobDetail.room.images.length - 1 : prev - 1);
-    }
-  };
+  // const prevImage = () => {
+  //   if (recruit.imgUrl.length > 0) {
+  //     setCurrentImageIndex((prev) => prev === 0 ? recruit.imgUrl.length - 1 : prev - 1);
+  //   }
+  // };
 
   const toggleBookmark = () => {
     setIsBookmarked(!isBookmarked);
     Alert.alert('알림', isBookmarked ? '북마크가 해제되었습니다.' : '북마크에 추가되었습니다.');
   };
   
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment: Comment = {
-        id: Date.now(), author: "현재 사용자", content: newComment,
-        timeAgo: "방금 전", replies: []
-      };
-      setComments([...comments, comment]);
-      setNewComment('');
-      Alert.alert('완료', '댓글이 등록되었습니다.');
+  // 원댓글 추가
+const handleAddComment = () => {
+  if (newComment.trim()) {
+    const comment: Comment = {
+      commentId: Date.now(),
+      parentId: null,
+      content: newComment,
+      nickname: '현재 사용자',
+      profileImg: null,
+    };
+    setComments(prev => [...prev, comment]);
+    setNewComment('');
+    Alert.alert('완료', '댓글이 등록되었습니다.');
+  }
+};
+
+// 대댓글 추가
+const handleAddReply = (parentCommentId: number) => {
+  if (newReply.trim()) {
+    const reply: Comment = {
+      commentId: Date.now(),
+      parentId: parentCommentId,
+      content: newReply,
+      nickname: '현재 사용자',
+      profileImg: null,
+    };
+    setComments(prev => [...prev, reply]);
+    setNewReply('');
+    setReplyingTo(null);
+    Alert.alert('완료', '답글이 등록되었습니다.');
+  }
+};
+
+// 원댓글만 추출
+const rootComments = comments.filter(c => c.parentId === null);
+
+// parentId -> replies[] 매핑
+const repliesByParent = React.useMemo(() => {
+  const map: Record<number, Comment[]> = {};
+  comments.forEach(c => {
+    if (c.parentId != null) {
+      (map[c.parentId] ||= []).push(c);
     }
-  };
+  });
+  return map;
+}, [comments]);
 
-  const handleAddReply = (commentId: number) => {
-    if (newReply.trim()) {
-      setComments(comments.map(comment => {
-        if (comment.id === commentId) {
-          const reply: Reply = {
-            id: Date.now(), author: "현재 사용자", content: newReply, timeAgo: "방금 전"
-          };
-          return { ...comment, replies: [...(comment.replies || []), reply] };
-        }
-        return comment;
-      }));
-      setNewReply('');
-      setReplyingTo(null);
-      Alert.alert('완료', '답글이 등록되었습니다.');
-    }
-  };
-
-  // const handleShare = async () => {
-  //   try {
-  //     await Share.share({
-  //       message: `${jobDetail.title} - ${jobDetail.location}`,
-  //       // url: '공유할 URL' // 필요시 URL 추가
-  //     });
-  //   } catch (error: any) {
-  //     Alert.alert(error.message);
-  //   }
-  // };
-
-  // const handleReport = () => setShowReportModal(true);
   
   const submitReport = (reason: string) => {
     Alert.alert('완료', `신고가 접수되었습니다. (${reason}) 검토 후 조치하겠습니다.`);
@@ -270,6 +337,10 @@ export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, show
     Alert.alert('완료', '지원이 완료되었습니다! 작성자에게 공개 프로필이 전송되었습니다.');
   };
 
+  if (!recruit) {
+  return <SafeAreaView><Text>불러오는 중...</Text></SafeAreaView>;
+}
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* 헤더 */}
@@ -283,46 +354,46 @@ export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, show
 
       <ScrollView contentContainerStyle={styles.scrollContentContainer}>
         {/* 방 이미지 캐러셀 */}
-        {jobDetail.hasRoom === "has" && jobDetail.room.images.length > 0 && (
+        {/* {recruit.hasRoom === true && recruit.imgUrl.length > 0 && (
           <View style={{ width: screenWidth, height: screenWidth * 0.5625 }}>
-            <Image
-              source={{ uri: jobDetail.room.images[currentImageIndex] }}
+            {<Image
+              source={{ uri: recruit.imgUrl[currentImageIndex] }}
               style={styles.carouselImage}
               resizeMode="cover"
-            />
-            {jobDetail.room.images.length > 1 && (
+            /> }
+            {recruit.imgUrl.length > 1 && (
               <>
-                <TouchableOpacity onPress={prevImage} style={[styles.carouselNav, styles.carouselNavLeft]}>
+                {<TouchableOpacity onPress={prevImage} style={[styles.carouselNav, styles.carouselNavLeft]}>
                   <Text style={styles.carouselNavText}>{'<'}</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
                 <TouchableOpacity onPress={nextImage} style={[styles.carouselNav, styles.carouselNavRight]}>
                   <Text style={styles.carouselNavText}>{'>'}</Text>
                 </TouchableOpacity>
                 <View style={styles.carouselIndicator}>
                   <Text style={styles.carouselIndicatorText}>
-                    {currentImageIndex + 1}/{jobDetail.room.images.length}
+                    {currentImageIndex + 1}/{recruit.imgUrl.length}
                   </Text>
                 </View>
               </>
             )}
           </View>
-        )}
+        )} */}
 
         <View style={styles.contentPadding}>
           {/* 기본 정보 */}
           <View>
             <View style={styles.titleContainer}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.mainTitle}>{jobDetail.title}</Text>
+                <Text style={styles.mainTitle}>{recruit.title}</Text>
                 <View style={styles.locationContainer}>
                   <Ionicons name="location" size={16} color="#6b7280" />
                   <Text style={styles.mutedText}>
-                    {jobDetail.hasRoom === "has" ? jobDetail.address : jobDetail.location}
+                    {recruit.hasRoom === true ? recruit.address : recruit.address}
                   </Text>
                 </View>
                 <View style={styles.statsContainer}>
-                  <Text style={styles.mutedText}>조회 {jobDetail.viewCount}</Text>
-                  <Text style={styles.mutedText}>북마크 {jobDetail.bookmarkCount}</Text>
+                  {/* <Text style={styles.mutedText}>조회 {recruit.viewCount}</Text>
+                  <Text style={styles.mutedText}>북마크 {recruit.bookmarkCount}</Text> */}
                   <Text style={styles.mutedText}>2시간 전</Text>
                 </View>
               </View>
@@ -330,8 +401,8 @@ export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, show
                  <Text style={[styles.iconTextLg, isBookmarked && { color: '#F7B32B' }]}>♥</Text>
               </TouchableOpacity>
             </View>
-            <Badge style={jobDetail.status !== "모집중" && styles.badgeSecondary}>
-                <Text style={jobDetail.status !== "모집중" && styles.badgeSecondaryText}>{jobDetail.status}</Text>
+            <Badge style={recruit.status !== RecruitStatus.Recruiting && styles.badgeSecondary}>
+                <Text style={recruit.status !== RecruitStatus.Recruiting && styles.badgeSecondaryText}>{recruit.status}</Text>
             </Badge>
           </View>
 
@@ -340,13 +411,13 @@ export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, show
             <CardHeader><Text style={styles.cardTitle}>모집자 정보</Text></CardHeader>
             <CardContent>
               <View style={styles.authorInfo}>
-                <Avatar>
-                  <AvatarFallback>{jobDetail.author.avatar}</AvatarFallback>
-                </Avatar>
+                {/* <Avatar>
+                  <AvatarFallback>{recruit.author.avatar}</AvatarFallback>
+                </Avatar> */}
                 <View>
-                  <Text style={styles.fontMedium}>{jobDetail.author.nickname}</Text>
+                  <Text style={styles.fontMedium}>{recruit.authorName}</Text>
                   <Text style={styles.mutedTextSm}>
-                    {jobDetail.author.gender} • {jobDetail.author.age}
+                    {recruit.authorGender} • {getAge(recruit.birthdate)}
                   </Text>
                 </View>
               </View>
@@ -362,134 +433,151 @@ export default function JobPostingDetail({ jobId, onBack, onEdit, onDelete, show
                         <Text style={styles.mutedTextSm}>모집인원</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                           <Ionicons name="people" size={16} color="#6b7280" />
-                          <Text style={styles.fontMedium}>{jobDetail.recruitCount}명</Text>
+                          <Text style={styles.fontMedium}>{recruit.recruitCount}명</Text>
                         </View>
                     </View>
                     <View style={styles.gridItem}>
                         <Text style={styles.mutedTextSm}>방 여부</Text>
-                        <Text style={styles.fontMedium}>{getRoomStatusText(jobDetail.hasRoom)}</Text>
+                        <Text style={styles.fontMedium}>{getRoomStatusText(recruit.hasRoom)}</Text>
                     </View>
                 </View>
                 <View style={styles.gridContainer}>
                     <View style={styles.gridItem}>
                         <Text style={styles.mutedTextSm}>보증금</Text>
-                        <Text style={styles.fontMedium}>{jobDetail.depositMin === jobDetail.depositMax ? `${jobDetail.depositMin}만원` : `${jobDetail.depositMin}~${jobDetail.depositMax}만원`}</Text>
+                        <Text style={styles.fontMedium}>{recruit.rentalCostMin === recruit.rentalCostMax ? `${recruit.rentalCostMin}만원` : `${recruit.rentalCostMin}~${recruit.rentalCostMax}만원`}</Text>
                     </View>
                     <View style={styles.gridItem}>
                         <Text style={styles.mutedTextSm}>월세</Text>
-                        <Text style={styles.fontMedium}>{jobDetail.monthlyRentMin === jobDetail.monthlyRentMax ? `${jobDetail.monthlyRentMin}만원` : `${jobDetail.monthlyRentMin}~${jobDetail.monthlyRentMax}만원`}</Text>
+                        <Text style={styles.fontMedium}>{recruit.monthlyCostMin === recruit.monthlyCostMax ? `${recruit.monthlyCostMin}만원` : `${recruit.monthlyCostMin}~${recruit.monthlyCostMax}만원`}</Text>
                     </View>
                 </View>
                 <View style={styles.divider} />
                 <Text style={styles.subCardTitle}>선호 조건</Text>
                 <View style={styles.gridContainer}>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>선호 성별</Text><Text style={styles.fontMedium}>{getGenderText(jobDetail.preferredGender)}</Text></View>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>선호 나이대</Text><Text style={styles.fontMedium}>{jobDetail.ageMin === jobDetail.ageMax ? `${jobDetail.ageMin}세` : `${jobDetail.ageMin}~${jobDetail.ageMax}세`}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>선호 성별</Text><Text style={styles.fontMedium}>{getGenderText(recruit.preferedGender)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>선호 나이대</Text><Text style={styles.fontMedium}>{recruit.preferedMinAge === recruit.preferedMaxAge ? `${recruit.preferedMinAge}세` : `${recruit.preferedMinAge}~${recruit.preferedMaxAge}세`}</Text></View>
                 </View>
                 <View style={styles.gridContainer}>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>생활 패턴</Text><Text style={styles.fontMedium}>{getLifestyleText(jobDetail.lifestyle)}</Text></View>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>성격 유형</Text><Text style={styles.fontMedium}>{getPersonalityText(jobDetail.personality)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>생활 패턴</Text><Text style={styles.fontMedium}>{getLifestyleText(recruit.preferedLifeStyle)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>성격 유형</Text><Text style={styles.fontMedium}>{getPersonalityText(recruit.preferedPersonality)}</Text></View>
                 </View>
                 <View style={styles.gridContainer}>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>흡연 여부</Text><Text style={styles.fontMedium}>{getSmokingText(jobDetail.smokingPreference)}</Text></View>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>코골이</Text><Text style={styles.fontMedium}>{getSnoringText(jobDetail.snoringPreference)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>흡연 여부</Text><Text style={styles.fontMedium}>{getSmokingText(recruit.preferedSmoking)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>코골이</Text><Text style={styles.fontMedium}>{getSnoringText(recruit.preferedSnoring)}</Text></View>
                 </View>
                 <View style={styles.gridContainer}>
-                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>반려동물</Text><Text style={styles.fontMedium}>{getPetText(jobDetail.petPreference)}</Text></View>
+                    <View style={styles.gridItem}><Text style={styles.mutedTextSm}>반려동물</Text><Text style={styles.fontMedium}>{getPetText(recruit.preferedHasPet)}</Text></View>
                     <View style={styles.gridItem}></View>
                 </View>
             </CardContent>
           </Card>
           
           {/* 상세 설명 & 추가 정보 */}
-          {jobDetail.description && (
+          {recruit.detailDescript && (
             <Card>
               <CardHeader><Text style={styles.cardTitle}>상세 설명</Text></CardHeader>
-              <CardContent><Text style={styles.descriptionText}>{jobDetail.description}</Text></CardContent>
+              <CardContent><Text style={styles.descriptionText}>{recruit.detailDescript}</Text></CardContent>
             </Card>
           )}
 
-          {jobDetail.additionalInfo && (
+          {recruit.additionalDescript && (
             <Card>
-              <CardHeader><Text style={styles.cardTitle}>{jobDetail.hasRoom === "none" ? "희망 조건" : "추가 정보"}</Text></CardHeader>
-              <CardContent><Text style={styles.descriptionText}>{jobDetail.additionalInfo}</Text></CardContent>
+              <CardHeader><Text style={styles.cardTitle}>{recruit.hasRoom === true? "희망 조건" : "추가 정보"}</Text></CardHeader>
+              <CardContent><Text style={styles.descriptionText}>{recruit.additionalDescript}</Text></CardContent>
             </Card>
           )}
 
           {/* 댓글 */}
           <Card>
-            <CardHeader><Text style={styles.cardTitle}>댓글 {comments.length}</Text></CardHeader>
-            <CardContent>
-              {comments.map((comment) => (
-                <View key={comment.id} style={{ marginBottom: 16 }}>
-                  <View style={styles.commentContainer}>
-                    <Avatar style={styles.commentAvatar}>
-                      <AvatarFallback style={styles.commentAvatarText}>
-                        {comment.author.slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.commentHeader}>
-                        <Text style={styles.commentAuthor}>{comment.author}</Text>
-                        <Text style={styles.mutedTextSm}>{comment.timeAgo}</Text>
-                      </View>
-                      <Text style={[styles.mutedText, { marginBottom: 8 }]}>{comment.content}</Text>
-                      <TouchableOpacity onPress={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}>
-                         <Text style={styles.replyButtonText}>↩︎ 답글</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity><Text style={styles.mutedText}>...</Text></TouchableOpacity>
-                  </View>
+  <CardHeader><Text style={styles.cardTitle}>댓글 {comments.length}</Text></CardHeader>
+  <CardContent>
+    {rootComments.map((comment) => (
+      <View key={comment.commentId} style={{ marginBottom: 16 }}>
+        {/* 원댓글 */}
+        <View style={styles.commentContainer}>
+          {comment.profileImg ? (
+            <Image source={{ uri: comment.profileImg }} style={[styles.commentAvatar, { borderRadius: 16 }]} />
+          ) : (
+            <Avatar style={styles.commentAvatar}>
+              <AvatarFallback style={styles.commentAvatarText}>
+                {comment.nickname.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+          )}
 
-                  {comment.replies?.map((reply) => (
-                    <View key={reply.id} style={[styles.commentContainer, { marginLeft: 32, marginTop: 12 }]}>
-                      <Avatar style={styles.replyAvatar}>
-                        <AvatarFallback style={styles.replyAvatarText}>{reply.author.slice(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <View style={{ flex: 1 }}>
-                         <View style={styles.commentHeader}>
-                           <Text style={styles.commentAuthor}>{reply.author}</Text>
-                           <Text style={styles.mutedTextSm}>{reply.timeAgo}</Text>
-                         </View>
-                         <Text style={styles.mutedText}>{reply.content}</Text>
-                      </View>
-                       <TouchableOpacity><Text style={styles.mutedText}>...</Text></TouchableOpacity>
-                    </View>
-                  ))}
+          <View style={{ flex: 1 }}>
+            <View style={styles.commentHeader}>
+              <Text style={styles.commentAuthor}>{comment.nickname}</Text>
+              {/* 서버에 time 정보가 없으니 생략 혹은 추후 포맷팅 */}
+            </View>
+            <Text style={[styles.mutedText, { marginBottom: 8 }]}>{comment.content}</Text>
+            <TouchableOpacity onPress={() => setReplyingTo(replyingTo === comment.commentId ? null : comment.commentId)}>
+              <Text style={styles.replyButtonText}>↩︎ 답글</Text>
+            </TouchableOpacity>
+          </View>
 
-                  {replyingTo === comment.id && (
-                    <View style={{ marginLeft: 32, marginTop: 10 }}>
-                       <View style={styles.inputContainer}>
-                          <TextInput
-                            placeholder="답글을 입력하세요..."
-                            value={newReply}
-                            onChangeText={setNewReply}
-                            style={styles.textInput}
-                            onSubmitEditing={() => handleAddReply(comment.id)}
-                          />
-                          <Button onPress={() => handleAddReply(comment.id)} disabled={!newReply.trim()} style={styles.inputButton}>
-                             <Text style={styles.inputButtonText}>등록</Text>
-                          </Button>
-                       </View>
-                    </View>
-                  )}
-                </View>
-              ))}
-              <View style={[styles.divider, { marginVertical: 16 }]} />
-              <View style={styles.inputContainer}>
-                <TextInput
-                    placeholder="댓글을 입력하세요..."
-                    value={newComment}
-                    onChangeText={setNewComment}
-                    style={styles.textInput}
-                    onSubmitEditing={handleAddComment}
-                />
-                <Button onPress={handleAddComment} disabled={!newComment.trim()} style={styles.inputButton}>
-                   <Text style={styles.inputButtonText}>등록</Text>
-                </Button>
+          <TouchableOpacity><Text style={styles.mutedText}>...</Text></TouchableOpacity>
+        </View>
+
+        {/* 대댓글 목록 */}
+        {(repliesByParent[comment.commentId] || []).map((reply) => (
+          <View key={reply.commentId} style={[styles.commentContainer, { marginLeft: 32, marginTop: 12 }]}>
+            {reply.profileImg ? (
+              <Image source={{ uri: reply.profileImg }} style={[styles.replyAvatar, { borderRadius: 14 }]} />
+            ) : (
+              <Avatar style={styles.replyAvatar}>
+                <AvatarFallback style={styles.replyAvatarText}>{reply.nickname.slice(0, 2)}</AvatarFallback>
+              </Avatar>
+            )}
+
+            <View style={{ flex: 1 }}>
+              <View style={styles.commentHeader}>
+                <Text style={styles.commentAuthor}>{reply.nickname}</Text>
               </View>
-            </CardContent>
-          </Card>
+              <Text style={styles.mutedText}>{reply.content}</Text>
+            </View>
+
+            <TouchableOpacity><Text style={styles.mutedText}>...</Text></TouchableOpacity>
+          </View>
+        ))}
+
+        {/* 대댓글 입력창 */}
+        {replyingTo === comment.commentId && (
+          <View style={{ marginLeft: 32, marginTop: 10 }}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                placeholder="답글을 입력하세요..."
+                value={newReply}
+                onChangeText={setNewReply}
+                style={styles.textInput}
+                onSubmitEditing={() => handleAddReply(comment.commentId)}
+              />
+              <Button onPress={() => handleAddReply(comment.commentId)} disabled={!newReply.trim()} style={styles.inputButton}>
+                <Text style={styles.inputButtonText}>등록</Text>
+              </Button>
+            </View>
+          </View>
+        )}
+      </View>
+    ))}
+
+    {/* 원댓글 입력 */}
+    <View style={[styles.divider, { marginVertical: 16 }]} />
+    <View style={styles.inputContainer}>
+      <TextInput
+        placeholder="댓글을 입력하세요..."
+        value={newComment}
+        onChangeText={setNewComment}
+        style={styles.textInput}
+        onSubmitEditing={handleAddComment}
+      />
+      <Button onPress={handleAddComment} disabled={!newComment.trim()} style={styles.inputButton}>
+        <Text style={styles.inputButtonText}>등록</Text>
+      </Button>
+    </View>
+  </CardContent>
+</Card>
+
         </View>
       </ScrollView>
 

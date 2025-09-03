@@ -114,6 +114,7 @@ export default function App() {
       case 'JobPostingDetail':
         return (
           <JobPostingDetail
+          key={Number(params?.jobId)}  
             jobId={params?.jobId || 1}
             onBack={goBack}
           />

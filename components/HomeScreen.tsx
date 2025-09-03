@@ -75,23 +75,6 @@ export default function HomeScreen({
     setBookmarkedJobs(newBookmarked);
   };
 
-  const recommendedJobs = [
-    {
-      id: '1',
-      title: '중구 오피스텔 깔끔한 공간',
-      location: '중구 명동',
-      monthlyRent: 55,
-      tags: ['오피스텔', '중간형', '비흡연', '반려동물 없음'],
-    },
-    {
-      id: '2',
-      title: '신촌 투룸 쉐어하실 분',
-      location: '서대문구 신촌동',
-      monthlyRent: 60,
-      tags: ['투룸', '저녁형', '비흡연'],
-    },
-  ];
-
   const newsList = [
     {
       id: 1,
