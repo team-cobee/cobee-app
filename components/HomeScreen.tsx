@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
+import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets, SocialType } from '@/types/enums';
 import { Dimensions } from 'react-native';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import {
@@ -41,6 +41,18 @@ interface RecruitResponse{
   authorGender : Gender
 }
 
+interface user { // api 명세에 맞게 수정
+    id : number;
+    name : string;
+    email : string;
+    birthDate : string;
+    gender : Gender;
+    socialType : SocialType;
+    isCompleted : Boolean;
+    ocrValidation : Boolean;
+    isHost : Boolean;
+  };
+
 export default function HomeScreen({
   onNavigateToJob,
   onNavigateToCreateJob,
@@ -48,6 +60,7 @@ export default function HomeScreen({
 }: HomeScreenProps) {
   const [bookmarkedJobs, setBookmarkedJobs] = useState<Set<string>>(new Set());
   const [recruits, setRecruits] = useState<RecruitResponse[]>([]);
+  const [userInfo, setUserInfo] = useState<user | null>(null);
 
   useEffect(() => {
     const fetchRecruits = async () => {
@@ -62,6 +75,25 @@ export default function HomeScreen({
 
     fetchRecruits();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+  
+    const fetchMyInfo = async () => {
+      try {
+        const res = await api.get('/auth'); 
+        if (!cancelled) setUserInfo(res.data?.data);
+      } catch (error) {
+        console.error(error);
+        Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
+      }
+    };
+    fetchMyInfo();          
+  
+    return () => {        
+      cancelled = true;
+    };
+    }, []); 
 
   const toggleBookmark = (jobId: string) => {
     const newBookmarked = new Set(bookmarkedJobs);
@@ -104,7 +136,7 @@ export default function HomeScreen({
       </View>
         
         <View style={{ flex: 1 }}>
-          <Text style={styles.welcomeTitle}>이주연님,</Text>
+          <Text style={styles.welcomeTitle}>{userInfo?.name}님,</Text>
           <Text style={styles.welcomeSubtitle}>
             오늘은 어떤 룸메이트를 찾으시나요?
           </Text>

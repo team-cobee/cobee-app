@@ -46,20 +46,6 @@ export default function PublicProfileEditScreen({ onBack, onSave }: PublicProfil
     }
   });
 
-  // const [newInterest, setNewInterest] = useState('');
-  // const [newFacility, setNewFacility] = useState('');
-
-  // const availableInterests = ['영화감상', '독서', '요리', '운동', '카페투어', '여행', '음악감상', '게임', '등산', '사진촬영'];
-
-  // const handleAddInterest = (interest: string) => {
-  //   if (!formData.interests.includes(interest)) {
-  //     setFormData({
-  //       ...formData,
-  //       interests: [...formData.interests, interest]
-  //     });
-  //   }
-  // };
-
   const handleRemoveInterest = (interest: string) => {
     setFormData({
       ...formData,

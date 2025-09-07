@@ -14,7 +14,7 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { Gender } from '@/types/enums';
+import { Gender, SocialType } from '@/types/enums';
 
 interface ProfileScreenProps {
   onLogout?: () => void;
@@ -203,17 +203,17 @@ export default function ProfileScreen({
     onWithdraw();
   };
 
-  interface user {
-    name: string;
-    email: string;
-    avatar: string;
-    age: number;
-    gender: Gender;
+  interface user { // api 명세에 맞게 수정
+    id : number;
+    name : string;
+    email : string;
+    birthDate : string;
+    gender : Gender;
+    socialType : SocialType;
+    isCompleted : Boolean;
+    ocrValidation : Boolean;
+    isHost : Boolean;
   };
-
-  interface ocr {
-    verificationStatus: Boolean; // check
-  }
 
   interface stats {
     myPosts: number;
@@ -221,36 +221,59 @@ export default function ProfileScreen({
     matches: number;
   };
 
-  useEffect( () => {
-    const fetchMyInfo = async () => {
-          try {
-            const res = await api.get('/public-profiles');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
-            setUserInfo(res.data.data);
-          } catch (error) {
-            console.error(error);
-            Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
-          }
-        }
+  function getAge(birthdate: string): number {
+  const birthYear = new Date(birthdate).getFullYear();
+  const currentYear = new Date().getFullYear();
+  
+  return currentYear - birthYear + 1;
+  }
+
+
+  // useEffect( () => {
+  //   const fetchMyInfo = async () => {
+  //         try {
+  //           const res = await api.get('/auth');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
+  //           setUserInfo(res.data.data);
+  //         } catch (error) {
+  //           console.error(error);
+  //           Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
+  //         }
+  //       }
+  //   }
+  // ), []; 
+
+  useEffect(() => {
+  let cancelled = false;
+
+  const fetchMyInfo = async () => {
+    try {
+      const res = await api.get('/auth'); 
+      if (!cancelled) setUserInfo(res.data?.data);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
     }
-  ), []; 
+  };
+  fetchMyInfo();          
 
-  // ocr 호출 api 
-
-
+  return () => {        
+    cancelled = true;
+  };
+  }, []);                    // ← dep array는 useEffect 호출 안쪽의 두 번째 인자
 
   // activity 호출 api 
-  useEffect( () => {
-    const fetchMyActivity = async () => {
-          try {
-            const res = await api.get('/public-profiles/activity');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
-            setActivity(res.data.data);
-          } catch (error) {
-            console.error(error);
-            Alert.alert('에러', '사용자 활동 정보를 불러오지 못했습니다.');
-          }
-        }
-    }
-  ), []; 
+  // useEffect( () => {
+  //   const fetchMyActivity = async () => {
+  //         try {
+  //           const res = await api.get('/public-profiles/activity');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
+  //           setActivity(res.data.data);
+  //         } catch (error) {
+  //           console.error(error);
+  //           Alert.alert('에러', '사용자 활동 정보를 불러오지 못했습니다.');
+  //         }
+  //       }
+  //   }
+  // ), []; 
   
   
 
@@ -279,7 +302,7 @@ export default function ProfileScreen({
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{userInfo?.name}</Text>
                 <Text style={styles.userEmail}>{userInfo?.email}</Text>
-                <Text style={styles.userDetails}>{userInfo?.age}세 • {userInfo?.gender}</Text>
+                <Text style={styles.userDetails}>{getAge(userInfo.birthDate)}세 • {userInfo?.gender}</Text>
                 <Badge variant="default" style={styles.verificationBadge}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="checkmark-circle" size={14} color="#10b981" />

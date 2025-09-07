@@ -1,6 +1,6 @@
 import axios from 'axios';
 export const api = axios.create({
-  baseURL: "",
+  baseURL: "",  //https://cobee-server-108875465480.asia-northeast3.run.app",
   timeout: 10_000,
 });
 const DEV_TOKEN = "";

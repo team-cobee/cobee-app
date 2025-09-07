@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { Gender, Lifestyle, Personality, Pets, Smoking, Snoring } from '@/types/enums';
 
 interface PublicProfileViewScreenProps {
   onBack?: () => void;
@@ -20,36 +21,40 @@ export default function PublicProfileViewScreen({ onBack, onEdit, userId, onNavi
     name: '김철수',
     age: 25,
     gender: '남성',
-    location: '서울 강남구',
-    avatar: '/avatar.jpg',
-    introduction: '안녕하세요! 깔끔하고 조용한 환경을 선호하는 25세 직장인입니다. 서로 배려하며 편안하게 지낼 수 있는 룸메이트를 찾고 있어요. 궁금한 점이 있으시면 언제든 연락해주세요! 😊',
-    interests: ['영화감상', '독서', '요리', '운동', '카페투어'],
+    email : 'test@gmail.com',
+    profileImg: '/avatar.jpg',
+    info: '안녕하세요! 깔끔하고 조용한 환경을 선호하는 25세 직장인입니다. 서로 배려하며 편안하게 지낼 수 있는 룸메이트를 찾고 있어요. 궁금한 점이 있으시면 언제든 연락해주세요! 😊',
     lifestyle: {
-      sleepPattern: '아침형',
       personality: '집순이',
       smoking: '비흡연',
-      drinking: '적당히',
       pet: '없음',
-      cleanliness: '깔끔함',
       snoring: '안함'
     },
-    jobInfo: {
-      occupation: 'IT 개발자',
-      workStyle: '재택근무',
-      income: '3000만원 이상'
-    },
-    roomPreferences: {
-      roomType: '원룸, 오피스텔',
-      budget: '60-80만원',
-      location: '강남구, 서초구',
-      facilities: ['에어컨', '세탁기', '인터넷']
-    },
     verification: {
-      identity: true,
-      income: true,
-      background: false
+      identify : true
     }
   };
+
+  interface profile {
+    name : string, 
+    age : number,
+    gender : Gender,
+    email : string,
+    profileImg : string,
+    info : string, 
+    lifestyle : {
+      personality : Personality,
+      lifestyle : Lifestyle,
+      smoking : Smoking,
+      hasPet : Pets,
+      snoring : Snoring
+    }
+
+  }
+
+  interface verification {
+    identify : Boolean;
+  }
 
   const getLifestyleIcon = (key: string) => {
     switch (key) {
@@ -75,9 +80,7 @@ export default function PublicProfileViewScreen({ onBack, onEdit, userId, onNavi
       case 'sleepPattern': return '생활패턴';
       case 'personality': return '성격';
       case 'smoking': return '흡연';
-      case 'drinking': return '음주';
       case 'pet': return '반려동물';
-      case 'cleanliness': return '청결도';
       case 'snoring': return '코골이';
       default: return key;
     }
