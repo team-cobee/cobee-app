@@ -273,6 +273,7 @@ export default function App() {
               onNavigateToMyPosts={() => navigate('MyPosts')}
               onNavigateToMatching={() => navigate('MatchingStatus')}
               onNavigateToBookmarks={() => navigate('BookmarkList')}
+              onNavigateToPublicProfile={() => navigate('PublicProfileView', { userId: '1' /* 혹은 실제 유저 id */ })}
               onLogout={handleLogout}
             />
           );

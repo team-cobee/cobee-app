@@ -182,7 +182,7 @@ export default function ProfileScreen({
 }: ProfileScreenProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
-  const [userInfo, setUserInfo] = useState<user | null>(null);
+  const [userInfo, setUserInfo] = useState<user | any>();
   const [activity, setActivity] = useState<stats | null>(null);
 
   const handleLogoutClick = () => {
@@ -195,19 +195,19 @@ export default function ProfileScreen({
 
   const confirmLogout = () => {
     setShowLogoutDialog(false);
-    onLogout();
+    //onLogout();
   };
 
   const confirmWithdraw = () => {
     setShowWithdrawDialog(false);
-    onWithdraw();
+    //onWithdraw();
   };
 
   interface user { // api 명세에 맞게 수정
     id : number;
     name : string;
     email : string;
-    birthDate : string;
+    birthDate : string | null;
     gender : Gender;
     socialType : SocialType;
     isCompleted : Boolean;
@@ -227,6 +227,8 @@ export default function ProfileScreen({
   
   return currentYear - birthYear + 1;
   }
+  const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
+
 
 
   // useEffect( () => {
@@ -302,7 +304,7 @@ export default function ProfileScreen({
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{userInfo?.name}</Text>
                 <Text style={styles.userEmail}>{userInfo?.email}</Text>
-                <Text style={styles.userDetails}>{getAge(userInfo.birthDate)}세 • {userInfo?.gender}</Text>
+                <Text style={styles.userDetails}>{ageText} • {userInfo?.gender}</Text>
                 <Badge variant="default" style={styles.verificationBadge}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="checkmark-circle" size={14} color="#10b981" />
@@ -333,10 +335,12 @@ export default function ProfileScreen({
         {/* 메뉴 */}
         <Card>
           <CardContent style={{ padding: 0 }}>
-            <TouchableOpacity style={styles.menuItem} onPress={onNavigateToPublicProfile}>
+            <TouchableOpacity 
+            style={styles.menuItem} onPress={onNavigateToPublicProfile}>
               <View style={styles.menuItemLeft}>
                 <Ionicons name="eye" size={20} color="#6b7280" />
                 <Text style={styles.menuText}>공개 프로필 보기</Text>
+                
               </View>
               <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
             </TouchableOpacity>

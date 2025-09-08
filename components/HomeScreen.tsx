@@ -51,7 +51,7 @@ interface user { // api 명세에 맞게 수정
     isCompleted : Boolean;
     ocrValidation : Boolean;
     isHost : Boolean;
-  };
+};
 
 export default function HomeScreen({
   onNavigateToJob,
@@ -95,6 +95,7 @@ export default function HomeScreen({
     };
     }, []); 
 
+  
   const toggleBookmark = (jobId: string) => {
     const newBookmarked = new Set(bookmarkedJobs);
     if (newBookmarked.has(jobId)) {
@@ -173,50 +174,47 @@ export default function HomeScreen({
     decelerationRate="fast"
     snapToAlignment="center" // 카드가 중앙에 딱 맞게
   >
-    {recruits.map((job) => (
-      <TouchableOpacity
-        key={job.id}
-        style={styles.jobCard}
-        onPress={() => onNavigateToJob?.(job.id)}
-      >
-        <View style={styles.jobCardContent}>
-          {/* 제목 */}
-          <Text style={styles.jobTitle}>{job.title}</Text>
+    {recruits.map((job, idx) => {
+  const key = `recruit-${job.id ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
+  return (
+    <TouchableOpacity
+      key={key}
+      style={styles.jobCard}
+      onPress={() => console.log('구인글 상세로 이동', job.id)}
+    >
+      <View style={styles.jobCardContent}>
+        <Text style={styles.jobTitle}>{job.title}</Text>
+        <Text style={styles.jobLocation}>{job.address}</Text>
+        <Text style={styles.jobPrice}>
+          월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
+        </Text>
 
-          {/* 주소 */}
-          <Text style={styles.jobLocation}>{job.address}</Text>
-
-          {/* 월세 */}
-          <Text style={styles.jobPrice}>
-            월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
-          </Text>
-
-          {/* 태그 */}
-          <View style={styles.tagsContainer}>
-            {job.isSmoking && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
-              </View>
-            )}
-            {job.isPetsAllowed && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
-              </View>
-            )}
-            {job.personality && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>성격: {job.personality}</Text>
-              </View>
-            )}
-            {job.lifestyle && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.tagsContainer}>
+          {job.isSmoking && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
+            </View>
+          )}
+          {job.isPetsAllowed && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
+            </View>
+          )}
+          {job.personality && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>성격: {job.personality}</Text>
+            </View>
+          )}
+          {job.lifestyle && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
+            </View>
+          )}
         </View>
-      </TouchableOpacity>
-    ))}
+      </View>
+    </TouchableOpacity>
+  );
+})}
   </ScrollView>
 </View>
 
@@ -224,8 +222,8 @@ export default function HomeScreen({
       {/* 최신 소식 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>최근 소식</Text>
-        {newsList.map((news) => (
-          <View key={news.id} style={styles.newsItem}>
+        {newsList.map((news, idx) => (
+          <View key={`news-${news.id}-${idx}`} style={styles.newsItem}>
             <Text style={styles.newsText}>{news.title}</Text>
             <Text style={styles.newsDate}>{news.date}</Text>
           </View>
