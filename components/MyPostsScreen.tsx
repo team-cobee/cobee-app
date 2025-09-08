@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '@/api/api';
 import {
   View,
   Text,
@@ -11,69 +12,55 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { RecruitStatus } from '@/types/enums';
 
 interface MyPostsScreenProps {
   onBack: () => void;
-  onNavigateToJob: (jobId: string) => void;
-  onNavigateToApplicants?: (jobId: string) => void;
-  onNavigateToEdit?: (jobId: string) => void;
+  onNavigateToJob: (jobId: number) => void;
+  onNavigateToApplicants?: (jobId: number) => void;
+  onNavigateToEdit?: (jobId: number) => void;
 }
 
 export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApplicants, onNavigateToEdit }: MyPostsScreenProps) {
-  const [myPosts, setMyPosts] = useState([
-    {
-      id: "1",
-      title: "홍대 근처 투룸 쉐어하실 분!",
-      location: "서울 마포구 홍익동",
-      monthlyRent: 45,
-      deposit: 1000,
-      roomType: "투룸",
-      moveInDate: "2024.03.15",
-      status: "모집중",
-      views: 156,
-      interests: 12,
-      applicants: 5,
-      timeAgo: "2일 전",
-      description: "홍대입구역 도보 5분 거리 투룸에서 같이 살 룸메이트를 찾고 있어요!",
-      images: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop"]
-    },
-    {
-      id: "2", 
-      title: "강남역 신축 오피스텔 룸메이트 구해요",
-      location: "서울 강남구 역삼동",
-      monthlyRent: 85,
-      deposit: 2000,
-      roomType: "원룸",
-      moveInDate: "2024.04.01",
-      status: "모집중",
-      views: 203,
-      interests: 8,
-      applicants: 3,
-      timeAgo: "5일 전",
-      description: "강남역 신축 오피스텔에서 깔끔하게 살 룸메이트 찾아요.",
-      images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop"]
-    },
-    {
-      id: "3",
-      title: "이대 근처 원룸 같이 살 사람 구합니다",
-      location: "서울 서대문구 신촌동",
-      monthlyRent: 55,
-      deposit: 1500,
-      roomType: "원룸",
-      moveInDate: "2024.03.20",
-      status: "매칭완료",
-      views: 89,
-      interests: 15,
-      applicants: 0,
-      timeAgo: "1주 전",
-      description: "이대 도보 10분 거리 깔끔한 원룸입니다.",
-      images: ["https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop"]
-    }
-  ]);
+  const [myPosts, setMyPosts] = useState<post[]>([]);
+
+  interface post {
+    postId : number,
+    title : string, 
+    address : string, 
+    createdAt : string,
+    monthlyCostMin : number,
+    monthlyCostMax : number,
+    rentalCostMin : number,
+    rentalCostMax : number,
+    viewd : number,
+    status : RecruitStatus,
+    comments : [],
+    imgUrl? : string[] | "test"
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+  
+    const fetchMyInfo = async () => {
+      try {
+        const res = await api.get('/recruits/my'); 
+        if (!cancelled) setMyPosts(res.data?.data);
+      } catch (error) {
+        console.error(error);
+        Alert.alert('에러', '나의 구인글 정보를 불러오지 못했습니다.');
+      }
+    };
+    fetchMyInfo();          
+  
+    return () => {        
+      cancelled = true;
+    };
+    }, []);   
 
 
-  const handleDeleteClick = (postId: string) => {
-    const post = myPosts.find(p => p.id === postId);
+  const handleDeleteClick = (postId: number) => {
+    const post = myPosts.find(p => p.postId === postId);
     Alert.alert(
       '구인글 삭제',
       `정말로 "${post?.title}" 구인글을 삭제하시겠습니까? 삭제된 구인글은 복구할 수 없습니다.`,
@@ -91,13 +78,13 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
     );
   };
 
-  const handleDeleteConfirm = (postId: string) => {
-    setMyPosts(prev => prev.filter(post => post.id !== postId));
+  const handleDeleteConfirm = (postId: number) => {
+    setMyPosts(prev => prev.filter(post => post.postId !== postId));
     // TODO: 실제 API 호출로 서버에서 삭제
     console.log('Deleted post:', postId);
   };
 
-  const handleCardClick = (postId: string) => {
+  const handleCardClick = (postId: number) => {
     onNavigateToJob(postId);
   };
 
@@ -133,13 +120,13 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 18, fontWeight: '600', color: '#16a34a' }}>
-                  {myPosts.filter(post => post.status === "모집중").length}
+                  {myPosts.filter(post => post.status === RecruitStatus.Recruiting).length}
                 </Text>
                 <Text style={{ fontSize: 14, color: '#6b7280' }}>모집중</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 18, fontWeight: '600', color: '#2563eb' }}>
-                  {myPosts.filter(post => post.status === "매칭완료").length}
+                  {myPosts.filter(post => post.status === RecruitStatus.RecruitOver).length}
                 </Text>
                 <Text style={{ fontSize: 14, color: '#6b7280' }}>매칭완료</Text>
               </View>
@@ -150,67 +137,30 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
         {/* 구인글 목록 */}
         <View style={{ gap: 16 }}>
           {myPosts.map((post) => (
-            <Card key={post.id}>
+            <Card key={post.postId}>
               <CardContent style={{ padding: 0 }}>
-                <TouchableOpacity onPress={() => handleCardClick(post.id)} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => handleCardClick(post.postId)} activeOpacity={0.7}>
                   <View style={{ position: 'relative' }}>
                     <Image 
-                      source={{ uri: post.images[0] }}
+                      //source={{ uri: post.imgUrl[0] }}
                       style={{ width: '100%', height: 200, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}
                       resizeMode="cover"
                     />
                     <View style={{ position: 'absolute', top: 12, left: 12 }}>
                       <Badge style={{
-                        backgroundColor: post.status === "모집중" ? 'rgba(34, 197, 94, 0.1)' : post.status === "매칭완료" ? 'rgba(37, 99, 235, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                        backgroundColor: post.status === RecruitStatus.Recruiting ? 'rgba(34, 197, 94, 0.1)' : post.status === RecruitStatus.RecruitOver ? 'rgba(37, 99, 235, 0.1)' : 'rgba(156, 163, 175, 0.1)',
                         paddingHorizontal: 8,
                         paddingVertical: 4,
                         borderRadius: 4,
                       }}>
                         <Text style={{
-                          color: post.status === "모집중" ? '#16a34a' : post.status === "매칭완료" ? '#2563eb' : '#6b7280',
+                          color: post.status === RecruitStatus.Recruiting ? '#16a34a' : post.status === RecruitStatus.RecruitOver ? '#2563eb' : '#6b7280',
                           fontSize: 12,
                           fontWeight: '500',
                         }}>
                           {post.status}
                         </Text>
                       </Badge>
-                    </View>
-                    <View style={{ position: 'absolute', top: 12, right: 12 }}>
-                      <TouchableOpacity 
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          Alert.alert(
-                            '메뉴',
-                            '원하는 작업을 선택하세요',
-                            [
-                              {
-                                text: `지원자 보기 (${post.applicants})`,
-                                onPress: () => onNavigateToApplicants?.(post.id)
-                              },
-                              {
-                                text: '수정하기',
-                                onPress: () => onNavigateToEdit?.(post.id)
-                              },
-                              {
-                                text: '삭제하기',
-                                style: 'destructive',
-                                onPress: () => handleDeleteClick(post.id)
-                              },
-                              {
-                                text: '취소',
-                                style: 'cancel'
-                              }
-                            ]
-                          );
-                        }}
-                        style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                          padding: 8,
-                          borderRadius: 4,
-                        }}
-                      >
-                        <Ionicons name="ellipsis-horizontal" size={16} color="#6b7280" />
-                      </TouchableOpacity>
                     </View>
                   </View>
 
@@ -223,27 +173,23 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
                       <Ionicons name="location" size={12} color="#6b7280" />
-                      <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.location}</Text>
+                      <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.address}</Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                         <Ionicons name="calendar" size={12} color="#6b7280" />
-                        <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.moveInDate}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="home" size={12} color="#6b7280" />
-                        <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.roomType}</Text>
+                        <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.createdAt}</Text>
                       </View>
                     </View>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <View>
                         <Text style={{ fontSize: 18, fontWeight: '600', color: '#F7B32B' }}>
-                          월 {post.monthlyRent}만원
+                          월 {post.monthlyCostMin}만원~
                         </Text>
                         <Text style={{ fontSize: 14, color: '#6b7280', marginLeft: 8 }}>
-                          보증금 {post.deposit}만원
+                          보증금 {post.rentalCostMin}만원~
                         </Text>
                       </View>
                     </View>
@@ -260,16 +206,16 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                           <Ionicons name="eye" size={12} color="#6b7280" />
-                          <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.views}</Text>
+                          <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.viewd}</Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        {/* <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                           <Ionicons name="chatbubble" size={12} color="#6b7280" />
                           <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.interests}</Text>
-                        </View>
+                        </View> */}
                         <TouchableOpacity 
                           onPress={(e) => {
                             e.stopPropagation();
-                            onNavigateToApplicants?.(post.id);
+                            onNavigateToApplicants?.(post.postId);
                           }}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
@@ -283,7 +229,7 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                           </Text>
                         </TouchableOpacity>
                       </View>
-                      <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.timeAgo}</Text>
+                      <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.createdAt}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
