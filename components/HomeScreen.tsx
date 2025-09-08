@@ -21,7 +21,7 @@ interface HomeScreenProps {
 }
 
 interface RecruitResponse{
-  id : number,
+  postId : number,
   title: string;
   authorName : string,
   createdBefore : number, // n 시간전
@@ -175,12 +175,12 @@ export default function HomeScreen({
     snapToAlignment="center" // 카드가 중앙에 딱 맞게
   >
     {recruits.map((job, idx) => {
-  const key = `recruit-${job.id ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
+  const key = `recruit-${job.postId ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
   return (
     <TouchableOpacity
       key={key}
       style={styles.jobCard}
-      onPress={() => console.log('구인글 상세로 이동', job.id)}
+      onPress={() => onNavigateToJob?.(job.postId)} 
     >
       <View style={styles.jobCardContent}>
         <Text style={styles.jobTitle}>{job.title}</Text>
