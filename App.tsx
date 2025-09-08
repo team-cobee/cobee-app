@@ -165,9 +165,9 @@ export default function App() {
         return (
           <MyPostsScreen
             onBack={goBack}
-            onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
-            onNavigateToApplicants={(postId: string) => navigate('Applicants', { postId })}
-            onNavigateToEdit={(jobId: string) => navigate('CreateJobPosting', { editJobId: jobId })}
+            onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
+            onNavigateToApplicants={(postId: number) => navigate('Applicants', { postId })}
+            onNavigateToEdit={(jobId: number) => navigate('CreateJobPosting', { editJobId: jobId })}
           />
         );
 

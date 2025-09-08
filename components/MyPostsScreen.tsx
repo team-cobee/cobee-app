@@ -23,9 +23,11 @@ interface MyPostsScreenProps {
 
 export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApplicants, onNavigateToEdit }: MyPostsScreenProps) {
   const [myPosts, setMyPosts] = useState<post[]>([]);
+  const [auther, setAuthor] = useState<author>();
 
   interface post {
     postId : number,
+    authorId : number,
     title : string, 
     address : string, 
     createdAt : string,
@@ -37,6 +39,10 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
     status : RecruitStatus,
     comments : [],
     imgUrl? : string[] | "test"
+  }
+
+  interface author {
+    id : number;
   }
 
   useEffect(() => {

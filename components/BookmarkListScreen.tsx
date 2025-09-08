@@ -11,6 +11,7 @@ import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Snoring, Smoking, Gender, Lifestyle, Personality, Pets, MatchStatus, RecruitStatus } from '@/types/enums';
+import { api } from '@/api/api';
 
 interface BookmarkListScreenProps {
   onBack: () => void;
