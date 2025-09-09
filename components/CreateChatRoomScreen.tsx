@@ -1,5 +1,4 @@
-// 수정 X
-import React, { useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader } from './ui/card';
+import { api } from '@/api/api';
 
 interface CreateChatRoomScreenProps {
   onBack: () => void;
@@ -24,6 +24,16 @@ export default function CreateChatRoomScreen({ onBack, onNext }: CreateChatRoomS
       onNext();
     }
   };
+
+  const createChatRoom = async (name: string, postId : number) => {
+      try {
+        const res = await api.post(`/chat/rooms`, { name, postId }); 
+        console.log('채팅방 생성 성공:', res.data);
+      } catch (e: any) {
+        console.error(e);
+        //Alert.alert('에러', e?.response?.data?.message ?? '상세 조회에 실패했습니다.');
+      }
+    };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
