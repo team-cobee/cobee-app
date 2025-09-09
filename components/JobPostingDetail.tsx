@@ -8,6 +8,7 @@ import {
   Personality,
   Pets,
   RecruitStatus,
+  MatchStatus,
 } from "@/types/enums";
 import {
   View,
@@ -25,6 +26,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Double } from "react-native/Libraries/Types/CodegenTypes";
+import { set } from "react-hook-form";
 
 // --- UI 컴포넌트 재구현 ---
 
@@ -106,7 +108,7 @@ const AvatarFallback = ({
   style?: any;
 }) => <Text style={[styles.avatarFallback, style]}>{children}</Text>;
 
-// --- 인터페이스 정의 ---
+// 인터페이스 정의 모음집 
 interface Comment {
   commentId: number;
   parentId: number | null;
@@ -123,7 +125,8 @@ interface Reply {
 }
 
 interface author {
-  id: number;
+  id: number,
+  birthdate : string
 }
 
 interface RecruitResponse {
@@ -165,6 +168,24 @@ interface RecruitResponse {
   imgUrl: string[] | null;
 }
 
+
+interface profile {
+    name : string, 
+    gender : Gender,
+    profileImg : string,
+    info : string
+  }
+
+
+// 지원 기록 응답
+interface applyRecord {
+  id: number;
+  appliedPostId: number;
+  appliedMemberId: number;
+  isMatched: MatchStatus;
+}
+
+
 interface JobPostingDetailProps {
   jobId: number | null;
   onBack: () => void;
@@ -193,6 +214,7 @@ export default function JobPostingDetail({
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
+  const [checkingApplied, setCheckingApplied] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [comments, setComments] = useState<Comment[]>([]);
 
@@ -204,7 +226,49 @@ export default function JobPostingDetail({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [recruit, setRecruit] = useState<RecruitResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [author, setAuthor] = useState<author>();
+  const [logined, setAuthor] = useState<author>();
+  const [publicProfile, setPublicProfile] = useState<profile>();
+
+  const ageText = logined?.birthdate ? `${getAge(logined.birthdate)}세` : '';
+
+  // 지원하기 api 
+  const applyForRecruit = async (postId: number) => {
+    try {
+      const res = await api.post('/apply', { postId }); 
+      const id = res.data?.data?.postId ?? postId;
+      setIsApplied(true);
+      setShowApplyModal(false);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert('에러', e?.response?.data?.message ?? '상세 조회에 실패했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    if (!recruit?.postId) return;
+      // 글 바뀔 때 상태 초기화 + 로딩 시작
+      setIsApplied(false);
+      setCheckingApplied(true);
+      fetchCheckStatus(recruit.postId); 
+    }, 
+  [recruit?.postId]);
+
+
+
+  // 지원 여부 체크 api
+  const fetchCheckStatus = async (postId: number) => {
+  try {
+    const res = await api.get(`/apply/isApplied/${postId}`);
+    setIsApplied(!!res.data?.data);
+  } catch (e) {
+    console.error(e);
+    setIsApplied(false);
+  } finally {
+    setCheckingApplied(false); 
+  }
+
+};
+
 
   useEffect(() => {
     let cancelled = false;
@@ -213,8 +277,10 @@ export default function JobPostingDetail({
       setLoading(true);
       try {
         const authInfo = await api.get("/auth");
+        const profileInfo = await api.get("/public-profiles");
         if (cancelled) return;
         setAuthor(authInfo.data?.data ?? null);
+        setPublicProfile(profileInfo.data?.data ?? null);
       } catch (e) {
         console.error(e);
         Alert.alert("에러", "글 정보를 불러오지 못했습니다.");
@@ -229,7 +295,7 @@ export default function JobPostingDetail({
     };
   }, [jobId]);
 
-  const isOwner = !!(author && recruit && author?.id === recruit?.authorId);
+  const isOwner = !!(logined && recruit && logined?.id === recruit?.authorId);
 
   useEffect(() => {
     if (jobId == null) return;
@@ -255,15 +321,6 @@ export default function JobPostingDetail({
     }; // ★ 이전 요청 무시
   }, [jobId]);
 
-  // 헬퍼 함수들 (변경 없음)
-  // const getGenderText = (gender: Gender) => ({ Gender.Male: '남자', FEMALE: '여자', any: '상관없음' }[gender] || gender);
-  // const getLifestyleText = (lifestyle: string) => ({ MORNING: '아침형', evening: '저녁형' }[lifestyle] || lifestyle);
-  // const getPersonalityText = (personality: string) => ({ homebody: '집순이', outgoing: '밖순이' }[personality] || personality);
-  // const getSmokingText = (smoking: string) => ({ 'no-smoking': '흡연 불가', any: '상관없음' }[smoking] || smoking);
-  // const getSnoringText = (snoring: string) => ({ any: '상관없음', 'no-snoring': '코골이 불가' }[snoring] || snoring);
-  // const getPetText = (pet: string) => ({ possible: '가능', impossible: '불가능', any: '상관없음' }[pet] || pet);
-  // const getRoomStatusText = (hasRoom: Boolean) => ({ true: '방 있음', false: '함께 찾기' });
-  // Gender
   const getGenderText = (gender: Gender) => {
     const map: Record<Gender, string> = {
       [Gender.Male]: "남자",
@@ -859,14 +916,14 @@ export default function JobPostingDetail({
           </View>
         ) : (
           <Button
-            onPress={!isApplied ? () => setShowApplyModal(true) : () => {}}
-            disabled={isApplied}
+            onPress={() => setShowApplyModal(true)}
+            disabled={checkingApplied || isApplied}
             style={[
               styles.bottomButtonFull,
-              isApplied ? styles.applyDisabled : styles.applySolid,
+              checkingApplied || isApplied ? styles.applyDisabled : styles.applySolid,
             ]}
           >
-            {isApplied ? "지원 완료" : "지원하기"}
+            {checkingApplied ? "상태 확인중..." : (isApplied ? "지원 완료" : "지원하기")}
           </Button>
         )}
       </View>
@@ -943,13 +1000,12 @@ export default function JobPostingDetail({
                       <AvatarFallback>나</AvatarFallback>
                     </Avatar>
                     <View>
-                      <Text style={styles.fontMedium}>김현수</Text>
-                      <Text style={styles.mutedTextSm}>남성 • 20대 중반</Text>
+                      <Text style={styles.fontMedium}>{publicProfile?.name}</Text>
+                      <Text style={styles.mutedTextSm}>{publicProfile?.gender} • {ageText}</Text>
                     </View>
                   </View>
                   <Text style={styles.mutedText}>
-                    안녕하세요! 깔끔하고 조용한 성격으로 룸메이트와 잘 지낼 수
-                    있습니다.
+                    {publicProfile?.info || "공개 프로필의 자기소개가 없습니다."}
                   </Text>
                 </View>
                 <Text
@@ -965,7 +1021,7 @@ export default function JobPostingDetail({
                     <Text style={{ color: "#333" }}>취소</Text>
                   </Button>
                   <Button
-                    onPress={handleApply}
+                    onPress={() => applyForRecruit(recruit.postId)}
                     style={[styles.modalButton, { backgroundColor: "#F7B32B" }]}
                   >
                     <Text style={{ color: "#fff" }}>지원하기</Text>
