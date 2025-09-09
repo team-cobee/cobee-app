@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+//import { useRoute } from '@react-navigation/native';
 import { api } from '@/api/api';
 import {
   View,
@@ -13,8 +14,10 @@ import { RecruitStatus } from '@/types/enums';
 
 interface SelectJobPostingScreenProps {
   onBack?: () => void;
-  onComplete?: (roomId: string) => void;
+  onComplete?: (roomId: number) => void;
   onSelect?: () => void;
+  route?: { params?: { roomName?: string } };
+  roomName?: string;
 }
 
 interface post {
@@ -31,35 +34,112 @@ interface post {
     recruitCount : number
   }
 
-export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJobPostingScreenProps) {
+  interface chat {
+    id : number;
+    name : string;
+    currentUserCount : number;
+  }
+
+export default function SelectJobPostingScreen(props: SelectJobPostingScreenProps) {
+  const { onBack, onComplete } = props;
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [postList, setPostList] = useState<post[]>([]);
+  const roomName = (props.route?.params?.roomName ?? props.roomName ?? '').trim();
+  const [chatRoomInfo, setChatRoomInfo] = useState<chat>();
     
   const fetchMyPostInfo = async () => {
-    try {
-      const res = await api.get('/recruits/my'); 
-      setPostList(res.data?.data);
-    } catch (error) {
-      console.error(error);
-      Alert.alert('에러', '나의 구인글 정보를 불러오지 못했습니다.');
+  try {
+    const res = await api.get('/recruits/my');
+    const list = Array.isArray(res.data?.data) ? res.data.data : [];
+    setPostList(list);
+  } catch (error) {
+    console.error(error);
+    Alert.alert('에러', '나의 구인글 정보를 불러오지 못했습니다.');
+  }
+};
+
+
+const createChatRoom = async (name: string, postId: number) => {
+    const res = await api.post('/chat/rooms', { name, postId });
+
+    // 백엔드가 success / code / message 형태를 줄 수 있으므로 체크
+    if (res.data?.success === false) {
+      throw new Error(res.data?.message || '채팅방 생성 실패');
     }
-    fetchMyPostInfo();          
+
+    const roomId = (res.data.id);
+    if (!roomId) {
+      throw new Error('roomId를 응답에서 찾을 수 없습니다.');
+    }
+    return roomId;
   };
-  
+
+  const handleCreateRoom = async () => {
+    if (!selectedJobId) return;
+
+    if (!roomName.trim()) {
+      Alert.alert('알림', '채팅방 이름을 먼저 입력하세요.');
+      return;
+    }
+
+    try {
+      const roomId = await createChatRoom(roomName.trim(), selectedJobId);
+      Alert.alert('완료', '채팅방이 생성되었습니다!');
+      onComplete?.(roomId); // ← 성공시에만 호출
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert('에러', e?.message || e?.response?.data?.message || '채팅방 생성 실패');
+    }
+  };
+
+// const createChatRoom = async (name: string, postId : number) => {
+//       try {
+//         const res = await api.post(`/chat/rooms`, { name, postId }); 
+//         setChatRoomInfo(res.data?. null);
+//         console.log('채팅방 생성 성공:', res.data);
+//       } catch (e: any) {
+//         console.error(e);
+//         //Alert.alert('에러', e?.response?.data?.message ?? '상세 조회에 실패했습니다.');
+//       }
+//     };
+
+
+useEffect(() => {
+  fetchMyPostInfo();
+}, []);
 
 
   const handleSelectJob = (jobId: number) => {
     setSelectedJobId(jobId);
   };
 
-  const handleCreateRoom = () => {
-    if (selectedJobId) {
-      // 채팅방 생성 로직
-      const roomId = 'room_' + Date.now();
-      Alert.alert('완료', '채팅방이 생성되었습니다!');
-      onComplete?.(roomId);
-    }
-  };
+  // const handleCreateRoom = () => {
+  //   if (selectedJobId) {
+  //     // 채팅방 생성 로직
+  //     Alert.alert('완료', '채팅방이 생성되었습니다!');
+  //     onComplete?.(chatRoomInfo?.id);
+  //     createChatRoom(roomName, selectedJobId);
+  //   }
+  // };
+
+  // const handleCreateRoom = async () => {
+  //   if (!selectedJobId) return;
+
+  //   if (!roomName.trim()) {
+  //     Alert.alert('알림', '채팅방 이름을 먼저 입력하세요.');
+  //     return;
+  //   }
+
+  //   try {
+  //     const roomId = await createChatRoom(roomName.trim(), selectedJobId);
+  //     Alert.alert('완료', '채팅방이 생성되었습니다!');
+  //     onComplete?.(roomId); // ← 성공시에만 호출
+  //   } catch (e: any) {
+  //     console.error(e);
+  //     Alert.alert('에러', e?.message || e?.response?.data?.message || '채팅방 생성 실패');
+  //   }
+  // };
+
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
@@ -141,7 +221,7 @@ export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJob
                 >
                   <Card style={{
                     borderWidth: selectedJobId === post.postId ? 2 : 1,
-                    borderColor: selectedJobId === post.id ? '#F7B32B' : '#e5e7eb',
+                    borderColor: selectedJobId === post.postId ? '#F7B32B' : '#e5e7eb',
                   }}>
                     <CardContent style={{ padding: 16 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>

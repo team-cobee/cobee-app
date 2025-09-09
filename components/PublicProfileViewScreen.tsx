@@ -53,6 +53,8 @@ useEffect(() => {
         api.get('/ocr/status'),
       ]);
       if (cancelled) return;
+      console.log(p.data);
+      console.log(o.data);
       setPublicProfile(p.data?.data ?? p.data ?? null);
       setOcr(o.data?.data ?? o.data ?? null);
     } finally {

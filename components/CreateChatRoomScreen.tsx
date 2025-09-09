@@ -13,7 +13,7 @@ import { api } from '@/api/api';
 
 interface CreateChatRoomScreenProps {
   onBack: () => void;
-  onNext: () => void;
+  onNext?: (name: string) => void; // (선택) 기존 시그니처 유지해도 됨
 }
 
 export default function CreateChatRoomScreen({ onBack, onNext }: CreateChatRoomScreenProps) {
@@ -21,19 +21,9 @@ export default function CreateChatRoomScreen({ onBack, onNext }: CreateChatRoomS
 
   const handleNext = () => {
     if (roomName.trim()) {
-      onNext();
+      onNext?.(roomName);
     }
   };
-
-  const createChatRoom = async (name: string, postId : number) => {
-      try {
-        const res = await api.post(`/chat/rooms`, { name, postId }); 
-        console.log('채팅방 생성 성공:', res.data);
-      } catch (e: any) {
-        console.error(e);
-        //Alert.alert('에러', e?.response?.data?.message ?? '상세 조회에 실패했습니다.');
-      }
-    };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>

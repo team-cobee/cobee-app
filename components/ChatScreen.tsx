@@ -1,5 +1,5 @@
-// 수정 X
 import React, { useState } from 'react';
+import { api } from '@/api/api';
 import {
   View,
   Text,
@@ -45,7 +45,7 @@ interface Member {
 }
 
 export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToCreateRoom, chatRoomState, onLeaveChatRoom }: ChatScreenProps) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<message[]>([]);
   const [debugIsOwner, setDebugIsOwner] = useState(chatRoomState.isOwner);
   
   // 채팅방 상태 관리
@@ -56,6 +56,22 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
     { id: 'user3', name: '이준혁', avatar: 'LJ', isOwner: false },
   ]);
 
+  interface message{
+    id : string;
+    roomId : number;
+    sender : number;
+    senderUsername : string;
+    message : string;
+    timestamp : string;  // local date time으로 오는데 ... 변환해야하나??? 
+    messageType : string;
+    imageUrl : string;
+  }
+
+  // const getAllChatMessages = async (roomId: number) => {
+  //     const res = api.get(`chat/rooms/history/${roomId}`);
+  //     console.log(res);
+  //     setMessages(res.data.data);
+  // }
   // 메시지 목록 상태 관리
   const [messages, setMessages] = useState<Message[]>([
     {

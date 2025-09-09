@@ -17,29 +17,12 @@ interface ProfileEditScreenProps {
 }
 
 export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenProps) {
-  const [profileData, setProfileData] = useState({
-    // 공개 프로필 정보
-    nickname: "김민수",
-    age: 25,
-    lifestyle: "morning",
-    personality: "homebody", 
-    smokingStatus: "non-smoker",
-    snoringStatus: "no-snoring",
-    petStatus: "no-pets",
-    bio: "깔끔하고 조용한 성격입니다. 매일 아침 7시에 출근하고 있어요!",
-    // 매칭 선호도
-    preferredGender: "any",
-    ageMin: 22,
-    ageMax: 100,
-    preferredLifestyle: "any",
-    preferredPersonality: "any",
-    smokingPreference: "no-smoking",
-    snoringPreference: "any",
-    petPreference: "any",
-    maxRoommates: 2
-  });
-
+  const [profileData, setProfileData] = useState<profile>([]);
   const [isChanged, setIsChanged] = useState(false);
+
+  interface profile {
+    
+  }
 
   const handleInputChange = (field: string, value: string | number) => {
     setProfileData(prev => ({

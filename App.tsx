@@ -62,6 +62,14 @@ export default function App() {
   // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // 채팅
+  const [chatRoomState, setChatRoomState] = useState({
+    hasRoom: false,
+    isOwner: true,          // 필요에 따라 조정
+    roomId: null as string | null,
+});
+
+
   // Dynamic navigation function
   const navigate = (screen: string, params?: any) => {
     const newRoute = { screen, params };
@@ -201,7 +209,7 @@ export default function App() {
         return (
           <CreateChatRoomScreen
             onBack={goBack}
-            onNext={() => navigate('SelectJobPosting')}
+            onNext={(name) => navigate('SelectJobPosting', { roomName: name })}
           />
         );
 
@@ -216,8 +224,16 @@ export default function App() {
       case 'SelectJobPosting':
         return (
           <SelectJobPostingScreen
-            onBack={goBack}
-            onSelect={() => setCurrentRoute({ screen: 'Main' })}
+          onBack={goBack}
+          roomName={params?.roomName}        // ← 직접 prop으로 전달(간단)
+          onComplete={(roomId) => {
+            // 생성 성공 시: 채팅 탭 상태 업데이트 + 메인으로 이동 + 채팅 탭 선택
+            setChatRoomState({ hasRoom: true, isOwner: true, roomId: String(roomId) });
+            setCurrentRoute({ screen: 'Main' });
+            setCurrentScreen('chat');
+          }}
+            // onBack={goBack}
+            // onSelect={() => setCurrentRoute({ screen: 'Main' })}
           />
         );
 
