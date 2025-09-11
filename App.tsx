@@ -165,7 +165,7 @@ export default function App() {
         return (
           <MatchingStatusScreen
             onBack={goBack}
-            onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
+            onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
           />
         );
 

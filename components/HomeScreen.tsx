@@ -59,14 +59,14 @@ export default function HomeScreen({
   onNavigateToBookmarks,
 }: HomeScreenProps) {
   const [bookmarkedJobs, setBookmarkedJobs] = useState<Set<string>>(new Set());
-  const [recruits, setRecruits] = useState<RecruitResponse[]>([]);
+  const [recruits, setRecruits] = useState<RecruitResponse[] | null>([]);
   const [userInfo, setUserInfo] = useState<user | null>(null);
 
   useEffect(() => {
     const fetchRecruits = async () => {
       try {
         const res = await api.get('/recruits'); // @GetMapping("")
-        setRecruits(res.data.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
+        setRecruits(res.data?.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
       } catch (error) {
         console.error(error);
         Alert.alert('에러', '구인글을 불러오지 못했습니다');
@@ -174,7 +174,7 @@ export default function HomeScreen({
     decelerationRate="fast"
     snapToAlignment="center" // 카드가 중앙에 딱 맞게
   >
-    {recruits.map((job, idx) => {
+    {recruits?.map((job, idx) => {
   const key = `recruit-${job.postId ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
   return (
     <TouchableOpacity

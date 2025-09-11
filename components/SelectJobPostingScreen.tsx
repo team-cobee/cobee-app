@@ -67,7 +67,8 @@ const createChatRoom = async (name: string, postId: number) => {
       throw new Error(res.data?.message || '채팅방 생성 실패');
     }
 
-    const roomId = (res.data.id);
+    const roomId = (res.data.data.id);
+    console.log('생성된 채팅방 ID:', roomId);
     if (!roomId) {
       throw new Error('roomId를 응답에서 찾을 수 없습니다.');
     }

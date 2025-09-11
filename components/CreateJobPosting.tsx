@@ -139,7 +139,7 @@ export default function CreateJobPosting({
     address: '',
     latitude: '',        // 입력은 string, 제출시 number|null 로 변환
     longitude: '',
-    distance: '',
+    // distance: '',
 
     // Step 5 (이미지)
     images: [] as string[],
@@ -177,7 +177,7 @@ export default function CreateJobPosting({
         return !!formData.hasRoom;
       case 4:
         // 방이 있으면 주소 필수, 좌표/거리 선택
-        return formData.hasRoom === 'none' || formData.address.trim().length > 0;
+        return /*formData.hasRoom === 'none'*/ formData.address.trim().length > 0;
       case 5:
       default:
         return true;
