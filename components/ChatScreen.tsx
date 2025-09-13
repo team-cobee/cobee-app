@@ -44,6 +44,13 @@ interface Member {
   isOwner: boolean;
 }
 
+interface ChatRoom {
+  id : number;
+  name : string;
+  maxMemberCount : number;
+  currentUserCount : number;
+}
+
 export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToCreateRoom, chatRoomState, onLeaveChatRoom }: ChatScreenProps) {
   const [message, setMessage] = useState<message[]>([]);
   const [debugIsOwner, setDebugIsOwner] = useState(chatRoomState.isOwner);
@@ -67,11 +74,17 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
     imageUrl : string;
   }
 
-  // const getAllChatMessages = async (roomId: number) => {
-  //     const res = api.get(`chat/rooms/history/${roomId}`);
-  //     console.log(res);
-  //     setMessages(res.data.data);
-  // }
+  const getAllChatMessages = async (roomId: number) => {
+      const res = api.get(`chat/rooms/history/${roomId}`);
+      console.log(res);
+      setMessages(res.data.data);
+  }
+
+  const getMyChatInfo = async () => {
+      const res = api.get('chat/rooms/my');
+      console.log(res);
+  }
+
   // 메시지 목록 상태 관리
   const [messages, setMessages] = useState<Message[]>([
     {

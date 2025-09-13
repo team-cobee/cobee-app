@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Double } from 'react-native/Libraries/Types/CodegenTypes';
-import { Gender, Lifestyle, Personality, Pets, RecruitStatus, Smoking, Snoring } from '@/types/enums';
+import { Gender, Lifestyle, MatchStatus, Personality, Pets, RecruitStatus, Smoking, Snoring } from '@/types/enums';
 
 interface MatchingStatusScreenProps {
   onBack: () => void;
@@ -101,8 +101,8 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
 
   const renderJobCard = (job: any, showParticipants = false) => (
     <TouchableOpacity 
-      key={job.id}
-      onPress={() => onNavigateToJob(job.id)}
+      key={job.postId}
+      onPress={() => onNavigateToJob(job.postId)}
       activeOpacity={0.7}
     >
       <Card>
@@ -112,7 +112,7 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
               <Text style={{ fontWeight: '500', fontSize: 14, marginBottom: 4 }}>{job.title}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
                 <Text style={{ fontSize: 12, color: '#6b7280' }}>📍</Text>
-                <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.location}</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.address}</Text>
               </View>
               <Text style={{ fontSize: 12, color: '#6b7280' }}>
                 작성자: {job.authorName} • 월세 {job.monthlyCostMin}만원
@@ -143,7 +143,7 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
                 {job.invitedAt && `초대일: ${job.invitedAt}`}
               </Text>
             </View>
-            {job.status === '매칭 완료' && (
+            {job.status === MatchStatus.Matched && (
               <Text style={{ color: '#22c55e', fontSize: 16 }}>✓</Text>
             )}
           </View>
