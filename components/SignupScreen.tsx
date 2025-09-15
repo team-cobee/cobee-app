@@ -1,4 +1,11 @@
 import { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { api, BASE_URL } from '@/api/api';                // api는 지금은 안 써도 됨
+import { getAccessToken } from '@/api/tokenStorage';  
+import { Dimensions } from 'react-native';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import Slider from '@react-native-community/slider';
+
 import {
   View,
   Text,
@@ -10,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader } from './ui/card';
+import { Gender, Lifestyle, Personality, Pets, Smoking, Snoring, SocialType } from '@/types/enums';
 
 interface SignupScreenProps {
   onSignup?: () => void;
@@ -17,8 +25,55 @@ interface SignupScreenProps {
   onComplete?: () => void;
 }
 
+type OcrUserData = {
+  id: number;
+  name: string;
+  email: string;
+  birthDate: string;
+  gender: string;
+  socialType: SocialType
+  isCompleted: boolean;
+  ocrValidation: boolean;
+  isHost: boolean;
+  verificationMessage: string;
+  verificationStatus: string;
+
+  residentRegistrationNumber?: string; // "910321-1XXXXXX" or "9103211XXXXXX"
+  issueDate?: string; 
+};
+
+type OcrVerifyResponse = {
+  message: string;
+  code: string;
+  error?: string;
+  data: OcrUserData;
+  success: boolean;
+};
+
+// 주민등록번호: "######-#######" or 숫자만 들어와도 처리
+function maskRRN(v?: string) {
+  if (!v) return '';
+  const digits = v.replace(/\D/g, '');
+  if (digits.length < 7) return v; // 불완전하면 원문 반환
+  const left = digits.slice(0, 6);
+  const right = digits.slice(6);
+  return `${left}-${right[0]}${'*'.repeat(Math.max(0, right.length - 1))}`;
+}
+
+// 발급일: "YYYYMMDD" | "YYYY-MM-DD" | "YY.MM.DD" → "YYYY.MM.DD"
+function formatIssueDate(v?: string) {
+  if (!v) return '';
+  const digits = v.replace(/\D/g, '');
+  if (digits.length === 8) {
+    return `${digits.slice(0,4)}.${digits.slice(4,6)}.${digits.slice(6,8)}`;
+  }
+  return v; // 포맷을 모르면 원문 유지
+}
+
+
 export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScreenProps) {
   const [step, setStep] = useState(1);
+  const SLIDER_WIDTH = Dimensions.get('window').width - 48; // 좌우 padding 고려해 적당히
   const [formData, setFormData] = useState({
     // 매칭 선호도 설정
     preferredGender: '',
@@ -41,12 +96,13 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
     mySmokingStatus: '',
     mySnoringStatus: '',
     myPetStatus: '',
-    bio: '',
+    info: '',
     
     // 신분증 인증
     idVerified: false,
     idImageFile: null as string | null,
     idImagePreview: null as string | null,
+    idImageDataUrl: null as string | null,
     // OCR 추출 정보
     extractedName: '',
     extractedResidentNumber: '',
@@ -59,101 +115,130 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
     error: null as string | null
   });
 
+  const [ocrInfo, setOcrInfo] = useState<OcrUserData | null>(null);
+
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
 
-  // const handleSliderChange = (values: number[], field: 'ageRange' | 'maxRoommates') => {
-  //   if (field === 'maxRoommates') {
-  //     setFormData({...formData, maxRoommates: values[0]});
-  //   } else if (field === 'ageRange') {
-  //     setFormData({
-  //       ...formData,
-  //       ageMin: values[0],
-  //       ageMax: values[1]
-  //     });
-  //   }
-  // };
+  const createPublicProfile = () => {
+  }
 
-  const handleFileSelect = () => {
-    // React Native에서는 이미지 피커를 사용해야 함
-    Alert.alert('알림', '이미지 선택 기능은 React Native 이미지 피커 라이브러리가 필요합니다.');
-    
-    // 시뮬레이션을 위한 임시 코드
-    const mockImageUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD';
-    setFormData({
-      ...formData,
-      idImageFile: mockImageUri,
-      idImagePreview: mockImageUri
-    });
-    
-    processOCR(mockImageUri);
-    
-    setUploadState({
-      isUploading: true,
-      isProcessing: false,
-      error: null
-    });
-  };
+  const createUserPreferences = () => {
+  }
 
-  const processOCR = async (_imageUri: string) => {
-    setUploadState({
-      isUploading: false,
-      isProcessing: true,
-      error: null
-    });
+  
 
-    // OCR 처리 시뮬레이션 (3초 대기)
-    try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // 90% 확률로 성공
-      if (Math.random() > 0.1) {
-        // 모의 OCR 결과 데이터 생성 (랜덤하게 선택)
-        const mockNames = ['김민수', '이지영', '박준호', '최서연', '정다은'];
-        const mockBirthYears = ['90', '91', '92', '93', '94', '95'];
-        const mockIssueDates = ['2023.05.15', '2023.08.22', '2024.01.10', '2023.11.03', '2024.03.08'];
-        
-        const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
-        const randomBirthYear = mockBirthYears[Math.floor(Math.random() * mockBirthYears.length)];
-        const randomIssueDate = mockIssueDates[Math.floor(Math.random() * mockIssueDates.length)];
-        const randomMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
-        const randomDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
-        
-        const mockOcrData = {
-          name: randomName,
-          residentNumber: `${randomBirthYear}${randomMonth}${randomDay}-1******`, // 뒷자리 마스킹
-          issueDate: randomIssueDate
-        };
+  const ocrVerify = async (file: { uri: string; name?: string; type?: string }): Promise<OcrVerifyResponse> => {
+  const token = await getAccessToken().catch(() => null);
 
-        setFormData(prev => ({
-          ...prev,
-          idVerified: true,
-          extractedName: mockOcrData.name,
-          extractedResidentNumber: mockOcrData.residentNumber,
-          extractedIssueDate: mockOcrData.issueDate
-        }));
-        
-        setUploadState({
-          isUploading: false,
-          isProcessing: false,
-          error: null
-        });
-      } else {
-        // 10% 확률로 실패
-        setUploadState({
-          isUploading: false,
-          isProcessing: false,
-          error: '신분증을 명확하게 촬영해주세요. 글자가 흐리거나 가려진 부분이 있습니다.'
-        });
+  const form = new FormData();
+  const filename = file.name ?? `id-${Date.now()}.jpg`;
+  const mime = file.type ?? 'image/jpeg';
+
+  form.append('image', {
+    uri: file.uri,      
+    name: filename,
+    type: mime,
+  } as any);
+
+  try {
+    const res = await api.post<OcrVerifyResponse>(
+      '/ocr/verify',      // ← api에 baseURL이 있으면 절대경로 쓰지 마세요
+      form,               // ← data
+      {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          // RN+axios에선 multipart는 자동 설정되지만, 명시해도 무방
+          'Content-Type': 'multipart/form-data',
+          Accept: 'application/json',
+        },
+        // transformRequest 기본값으로 FormData는 그대로 전송됩니다.
       }
-    } catch (error) {
+    );
+    setOcrInfo(res.data.data);
+    return res.data;
+  } catch (err: any) {
+    // axios는 4xx/5xx에서 throw 합니다.
+    const msg =
+      err?.response?.data?.data?.verificationMessage ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'OCR 업로드 실패';
+    throw new Error(msg);
+  }}
+
+const handleFileSelect = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '사진 접근 권한을 허용해주세요.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: false,
+      quality: 0.9,
+      allowsEditing: false,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const mime = asset.mimeType ?? 'image/jpeg';
+    const name = asset.fileName ?? `id-${Date.now()}.jpg`;
+
+    setFormData(prev => ({
+      ...prev,
+      idImageFile: asset.uri,
+      idImagePreview: asset.uri,
+    }));
+
+    setUploadState({ isUploading: false, isProcessing: true, error: null }); // ← 추천
+    await processOCR({ uri: asset.uri, name, type: mime });
+  } catch (e: any) {
+    Alert.alert('오류', e?.message ?? '이미지 선택 중 오류가 발생했습니다.');
+  }
+};
+
+const processOCR = async (file: { uri: string; name?: string; type?: string }) => {
+  setUploadState({ isUploading: false, isProcessing: true, error: null });
+
+  try {
+    const res = await ocrVerify(file);
+    const d = res?.data;
+
+    // 요구사항: "data가 넘어오면 성공으로 간주"
+    const verified =
+      !!d && (typeof d.ocrValidation === 'boolean' ? d.ocrValidation : true);
+
+    if (verified) {
+      setFormData(prev => ({
+        ...prev,
+        idVerified: true,
+        // 들어오면 마스킹/포맷팅해서 세팅
+        extractedName: d?.name || '',
+        extractedResidentNumber: maskRRN(d?.residentRegistrationNumber),
+        extractedIssueDate: formatIssueDate(d?.issueDate),
+        // 미리보기는 이미 handleFileSelect에서 넣었음
+      }));
+      setUploadState({ isUploading: false, isProcessing: false, error: null });
+    } else {
       setUploadState({
         isUploading: false,
         isProcessing: false,
-        error: '인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
+        error: d?.verificationMessage || '신분증 인식에 실패했습니다. 다시 시도해주세요.',
       });
     }
-  };
+  } catch (err: any) {
+    setUploadState({
+      isUploading: false,
+      isProcessing: false,
+      error: err?.message ?? '인증 처리 중 오류가 발생했습니다.',
+    });
+  }
+};
+
+
 
   const resetUpload = () => {
     setFormData({
@@ -354,8 +439,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                             <Text style={{ fontSize: 14 }}>다시 선택</Text>
                           </TouchableOpacity>
                           <TouchableOpacity 
-                            onPress={() => processOCR(formData.idImageFile!)}
-                            disabled={uploadState.isProcessing}
+                            onPress={() => processOCR({ uri: formData.idImageFile!, name: `retry-${Date.now()}.jpg`, type: 'image/jpeg' })}
+                              disabled={uploadState.isProcessing}
                             style={{
                               flex: 1,
                               backgroundColor: '#F7B32B',
@@ -446,9 +531,9 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>선호 성별</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'male', label: '남자' },
-                    { value: 'female', label: '여자' },
-                    { value: 'any', label: '상관없음' }
+                    { value: Gender.Male, label: '남자' },
+                    { value: Gender.Female, label: '여자' },
+                    { value: Gender.None, label: '상관없음' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -478,20 +563,27 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>
                   선호 나이대: {formData.ageMin}세 - {formData.ageMax}세
                 </Text>
-                <View style={{ gap: 12 }}>
-                  <View style={{ 
-                    height: 40, 
-                    backgroundColor: '#f3f4f6', 
-                    borderRadius: 20, 
-                    justifyContent: 'center',
-                    paddingHorizontal: 16
-                  }}>
-                    <Text style={{ textAlign: 'center', color: '#6b7280' }}>
-                      슬라이더 기능은 React Native 전용 라이브러리 필요
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>18세</Text>
+
+                <View style={{ alignItems: 'center' }}>
+                  <MultiSlider
+                    values={[formData.ageMin, formData.ageMax]}
+                    min={20}
+                    max={100}
+                    step={1}
+                    sliderLength={SLIDER_WIDTH}
+                    onValuesChangeFinish={(vals) =>
+                      setFormData({ ...formData, ageMin: vals[0], ageMax: vals[1] })
+                    }
+                    selectedStyle={{ backgroundColor: '#E6940C' }}   // 선택된 구간 색
+                    unselectedStyle={{ backgroundColor: '#e5e7eb' }} // 비선택 구간 색
+                    trackStyle={{ height: 6, borderRadius: 3 }}
+                    markerStyle={{
+                      height: 24, width: 24, borderRadius: 12, backgroundColor: '#E6940C',
+                    }}
+                    pressedMarkerStyle={{ transform: [{ scale: 1.1 }] }}
+                  />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: SLIDER_WIDTH }}>
+                    <Text style={{ fontSize: 12, color: '#6b7280' }}>20세</Text>
                     <Text style={{ fontSize: 12, color: '#6b7280' }}>100세</Text>
                   </View>
                 </View>
@@ -501,8 +593,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>생활 패턴</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'morning', label: '아침형' },
-                    { value: 'evening', label: '저녁형' }
+                    { value: Lifestyle.Morning, label: '아침형' },
+                    { value: Lifestyle.Evening, label: '저녁형' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -532,8 +624,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>성격 유형</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'homebody', label: '집순이' },
-                    { value: 'outgoing', label: '밖순이' }
+                    { value: Personality.Introvert, label: '집순이' },
+                    { value: Personality.Extrovert, label: '밖순이' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -608,8 +700,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>흡연 여부</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'no-smoking', label: '흡연 불가' },
-                    { value: 'any', label: '상관없음' }
+                    { value: Smoking.Impossible, label: '흡연 불가' },
+                    { value: Smoking.None, label: '상관없음' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -639,8 +731,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>코골이</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'any', label: '상관없음' },
-                    { value: 'no-snoring', label: '코골이 불가' }
+                    { value: Snoring.None, label: '상관없음' },
+                    { value: Snoring.Impossible, label: '코골이 불가' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -670,22 +762,23 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>
                   동거 가능 인원 수 (본인 포함): {formData.maxRoommates}명
                 </Text>
-                <View style={{ gap: 12 }}>
-                  <View style={{ 
-                    height: 40, 
-                    backgroundColor: '#f3f4f6', 
-                    borderRadius: 20, 
-                    justifyContent: 'center',
-                    paddingHorizontal: 16
-                  }}>
-                    <Text style={{ textAlign: 'center', color: '#6b7280' }}>
-                      슬라이더 기능은 React Native 전용 라이브러리 필요
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>2명</Text>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>10명</Text>
-                  </View>
+
+                <Slider
+                  value={formData.maxRoommates}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, maxRoommates: Math.round(v as number) })
+                  }
+                  minimumValue={2}
+                  maximumValue={10}
+                  step={1}
+                  minimumTrackTintColor="#E6940C"
+                  maximumTrackTintColor="#e5e7eb"
+                  thumbTintColor="#E6940C"
+                />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, color: '#6b7280' }}>2명</Text>
+                  <Text style={{ fontSize: 12, color: '#6b7280' }}>10명</Text>
                 </View>
               </View>
 
@@ -693,9 +786,9 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                 <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>반려동물</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {[
-                    { value: 'possible', label: '가능' },
-                    { value: 'impossible', label: '불가능' },
-                    { value: 'any', label: '상관없음' }
+                    { value: Pets.Possible, label: '가능' },
+                    { value: Pets.Impossible, label: '불가능' },
+                   //{ value: 'any', label: '상관없음' }
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -759,81 +852,6 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
         return (
           <View style={{ gap: 24 }}>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: '600' }}>닉네임 설정</Text>
-              <Text style={{ fontSize: 14, color: '#6b7280', marginTop: 8, textAlign: 'center' }}>
-                다른 사용자에게 보여질 닉네임을 설정해주세요
-              </Text>
-            </View>
-
-            <View style={{ gap: 16 }}>
-              <View>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8 }}>닉네임</Text>
-                <TextInput
-                  placeholder="닉네임을 입력하세요 (2-10자)"
-                  value={formData.nickname}
-                  onChangeText={(value) => setFormData({...formData, nickname: value})}
-                  maxLength={10}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#d1d5db',
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 12,
-                    fontSize: 16
-                  }}
-                />
-                <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                  한글, 영문, 숫자 사용 가능 (특수문자 제외)
-                </Text>
-              </View>
-
-              <View style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8 }}>닉네임 사용 가이드</Text>
-                <View style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 12, color: '#6b7280' }}>• 2-10자 이내로 설정해주세요</Text>
-                  <Text style={{ fontSize: 12, color: '#6b7280' }}>• 개인정보가 포함되지 않도록 주의해주세요</Text>
-                  <Text style={{ fontSize: 12, color: '#6b7280' }}>• 부적절한 단어는 사용할 수 없습니다</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity 
-                onPress={prevStep}
-                style={{
-                  flex: 1,
-                  borderWidth: 1,
-                  borderColor: '#d1d5db',
-                  borderRadius: 8,
-                  paddingVertical: 16,
-                  alignItems: 'center'
-                }}
-              >
-                <Text style={{ fontSize: 16 }}>이전</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={nextStep}
-                disabled={!formData.nickname || formData.nickname.length < 2}
-                style={{
-                  flex: 1,
-                  borderRadius: 8,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                  backgroundColor: formData.nickname && formData.nickname.length >= 2
-                    ? '#E6940C' 
-                    : 'rgba(247, 179, 43, 0.5)'
-                }}
-              >
-                <Text style={{ fontSize: 16, color: 'white', fontWeight: '600' }}>다음</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        );
-
-      case 5:
-        return (
-          <View style={{ gap: 24 }}>
-            <View style={{ alignItems: 'center' }}>
               <Text style={{ fontSize: 20, fontWeight: '600' }}>공개 프로필 작성</Text>
               <Text style={{ fontSize: 14, color: '#6b7280', marginTop: 8, textAlign: 'center' }}>
                 다른 사용자에게 보여질 프로필을 작성해주세요
@@ -847,16 +865,16 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
               <CardContent style={{ gap: 16 }}>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
                   <View style={{ flex: 1, minWidth: '45%' }}>
-                    <Text style={{ fontSize: 14, color: '#6b7280' }}>닉네임</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{formData.nickname}</Text>
+                    <Text style={{ fontSize: 14, color: '#6b7280' }}>이름</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.name}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: '45%' }}>
                     <Text style={{ fontSize: 14, color: '#6b7280' }}>성별</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>남성</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.gender}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: '45%' }}>
                     <Text style={{ fontSize: 14, color: '#6b7280' }}>나이</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>25세</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.birthDate}</Text>
                   </View>
                 </View>
               </CardContent>
@@ -876,8 +894,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   alignItems: 'center',
                 }}>
                   <Text style={{ fontSize: 16, color: formData.myLifestyle ? '#000' : '#9ca3af' }}>
-                    {formData.myLifestyle === 'morning' ? '아침형' : 
-                     formData.myLifestyle === 'evening' ? '저녁형' : '선택해주세요'}
+                    {formData.myLifestyle === Lifestyle.Morning ? '아침형' : 
+                     formData.myLifestyle === Lifestyle.Evening ? '저녁형' : '선택해주세요'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#9ca3af" />
                 </TouchableOpacity>
@@ -896,8 +914,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   alignItems: 'center',
                 }}>
                   <Text style={{ fontSize: 16, color: formData.myPersonality ? '#000' : '#9ca3af' }}>
-                    {formData.myPersonality === 'homebody' ? '집순이' : 
-                     formData.myPersonality === 'outgoing' ? '밖순이' : '선택해주세요'}
+                    {formData.myPersonality === Personality.Introvert ? '집순이' : 
+                     formData.myPersonality === Personality.Extrovert ? '밖순이' : '선택해주세요'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#9ca3af" />
                 </TouchableOpacity>
@@ -916,8 +934,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   alignItems: 'center',
                 }}>
                   <Text style={{ fontSize: 16, color: formData.mySmokingStatus ? '#000' : '#9ca3af' }}>
-                    {formData.mySmokingStatus === 'non-smoker' ? '비흡연자' : 
-                     formData.mySmokingStatus === 'smoker' ? '흡연자' : '선택해주세요'}
+                    {formData.mySmokingStatus === Smoking.NotSmoke ? '비흡연자' : 
+                     formData.mySmokingStatus === Smoking.Smoke ? '흡연자' : '선택해주세요'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#9ca3af" />
                 </TouchableOpacity>
@@ -936,8 +954,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   alignItems: 'center',
                 }}>
                   <Text style={{ fontSize: 16, color: formData.mySnoringStatus ? '#000' : '#9ca3af' }}>
-                    {formData.mySnoringStatus === 'snores' ? '코골이함' : 
-                     formData.mySnoringStatus === 'no-snoring' ? '안함' : '선택해주세요'}
+                    {formData.mySnoringStatus === Snoring.Snore ? '코골이함' : 
+                     formData.mySnoringStatus === Snoring.NoSnore ? '안함' : '선택해주세요'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#9ca3af" />
                 </TouchableOpacity>
@@ -956,8 +974,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   alignItems: 'center',
                 }}>
                   <Text style={{ fontSize: 16, color: formData.myPetStatus ? '#000' : '#9ca3af' }}>
-                    {formData.myPetStatus === 'has-pets' ? '있음' : 
-                     formData.myPetStatus === 'no-pets' ? '없음' : '선택해주세요'}
+                    {formData.myPetStatus === Pets.Have ? '있음' : 
+                     formData.myPetStatus === Pets.NotHave? '없음' : '선택해주세요'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#9ca3af" />
                 </TouchableOpacity>
@@ -969,8 +987,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   multiline
                   numberOfLines={4}
                   placeholder="자신을 소개하는 글을 자유롭게 작성해주세요"
-                  value={formData.bio}
-                  onChangeText={(value) => setFormData({...formData, bio: value})}
+                  value={formData.info}
+                  onChangeText={(value) => setFormData({...formData, info: value})}
                   style={{
                     width: '100%',
                     padding: 12,
@@ -1015,7 +1033,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
           </View>
         );
 
-      case 6:
+      case 5:
         return (
           <View style={{ gap: 24 }}>
             <View style={{ alignItems: 'center' }}>
@@ -1036,14 +1054,10 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: '#6b7280' }}>닉네임</Text>
-                  <Text>{formData.nickname}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ color: '#6b7280' }}>선호 성별</Text>
                   <Text>{
-                    formData.preferredGender === 'male' ? '남성' :
-                    formData.preferredGender === 'female' ? '여성' : '상관없음'
+                    formData.preferredGender ===Gender.Male ? '남성' :
+                    formData.preferredGender ===Gender.Female ? '여성' : '상관없음'
                   }</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -1149,4 +1163,5 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
       </ScrollView>
     </View>
   );
+  
 }

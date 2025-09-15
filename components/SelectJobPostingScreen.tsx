@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 //import { useRoute } from '@react-navigation/native';
-import { api } from '@/api/api';
+import { getAccessToken } from '@/api/tokenStorage';
+import { api  } from '@/api/api';
 import {
   View,
   Text,
@@ -59,21 +60,44 @@ export default function SelectJobPostingScreen(props: SelectJobPostingScreenProp
 };
 
 
+// const createChatRoom = async (name: string, postId: number) => {
+//     const res = await api.post('/chat/rooms', { name, postId });
+
+//     // 백엔드가 success / code / message 형태를 줄 수 있으므로 체크
+//     if (res.data?.success === false) {
+//       console.error('채팅방 생성 실패:', res.data);
+//       throw new Error(res.data?.message || '채팅방 생성 실패');
+//     }
+
+//     const roomId = (res.data.data.id);
+//     console.log('생성된 채팅방 ID:', roomId);
+//     if (!roomId) {
+//       throw new Error('roomId를 응답에서 찾을 수 없습니다.');
+//     }
+//     return roomId;
+//   };
+
+
 const createChatRoom = async (name: string, postId: number) => {
-    const res = await api.post('/chat/rooms', { name, postId });
+  const token = await getAccessToken().catch(() => null);
 
-    // 백엔드가 success / code / message 형태를 줄 수 있으므로 체크
-    if (res.data?.success === false) {
-      throw new Error(res.data?.message || '채팅방 생성 실패');
+  const res = await api.post(
+    '/chat/rooms',
+    { name, postId },
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     }
+  );
 
-    const roomId = (res.data.data.id);
-    console.log('생성된 채팅방 ID:', roomId);
-    if (!roomId) {
-      throw new Error('roomId를 응답에서 찾을 수 없습니다.');
-    }
-    return roomId;
-  };
+  if (res.data?.success === false) {
+    throw new Error(res.data?.message || '채팅방 생성 실패');
+  }
+
+  const roomId = res.data?.data?.id;
+  if (!roomId) throw new Error('roomId를 응답에서 찾을 수 없습니다.');
+  return roomId;
+};
+
 
   const handleCreateRoom = async () => {
     if (!selectedJobId) return;
