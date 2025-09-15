@@ -4,7 +4,7 @@ export const api = axios.create({
   baseURL: "https://cobee-server-108875465480.asia-northeast3.run.app",
   timeout: 10_000,
 });
-const DEV_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI1IiwiYXV0aCI6IlJPTEVfVVNFUiIsImV4cCI6MTc1ODA0Njg4M30.cmvsqPxbyqft5ZIrMZysC3N3ecp87odgVZNlQ85mcqk"
+const DEV_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI1IiwiYXV0aCI6IlJPTEVfVVNFUiIsImV4cCI6MTc1ODA1MTY5MH0.CGpm-oKidihc0kh7blaGzdJgKT19o4pFNArZi0j2fuo"
 api.interceptors.request.use((config) => {
   if (DEV_TOKEN) {
     config.headers.Authorization = `Bearer ${DEV_TOKEN}`;
