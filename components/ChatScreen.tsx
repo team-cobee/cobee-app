@@ -230,41 +230,6 @@ const handleSendMessage = () => {
   setInput('');
 };
 
-
-
-  // 매칭 준비 보내기 기능
-  const handleSendMatchingRequest = () => {
-    if (!debugIsOwner) {
-      Alert.alert('알림', '방장만 매칭 준비를 요청할 수 있습니다');
-      return;
-    }
-
-    // 매칭 요청 시스템 메시지  < - 없어도 되겟지 하고 뻄 
-    //setMessages(prev => [...prev, matchingMessage]);
-
-    // 채팅방 상태를 준비중으로 변경
-    //setChatRoomStatus('ready');
-
-    Alert.alert('알림', '매칭 준비 요청을 보냈습니다!');
-    
-    // 5초 후 시뮬레이션: 다른 멤버들도 준비 완료
-    setTimeout(() => {
-      // 2초 후 매칭 완료 메시지
-      setTimeout(() => {
-        const completedMessage: ChatSend = {
-          roomId:chatRoomInfo?.id as number,
-          senderId : loginUser?.id as number,
-          message: '모든 멤버가 준비를 완료했습니다! 매칭이 성사되었어요!',
-          messageType: MessageType.Text,
-        };
-        
-        //setMessages(prev => [...prev, completedMessage]);
-        setchatRoomStatus(RecruitStatus.RecruitOver);  // recruitStatus 변경 api 연결해야함. 
-        Alert.alert('알림', '🎉 매칭이 완료되었습니다!');
-      }, 2000);
-    }, 5000);
-  };
-
   // 권한 토글 기능 (디버그용)
   const toggleOwnerStatus = () => {
     setDebugIsOwner(!debugIsOwner);
@@ -519,31 +484,6 @@ const handleSendMessage = () => {
          );
     })}
       </ScrollView>
-
-      {/* 매칭 준비 버튼 (방장만) - 하단 고정 */}
-      {debugIsOwner && chatRoomStatus === RecruitStatus.Recruiting && (
-        <View style={{
-          position: 'absolute',
-          bottom: 90,
-          left: 0,
-          right: 0,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-          backgroundColor: '#ffffff',
-        }}>
-          <Button
-            onPress={handleSendMatchingRequest}
-            style={{ 
-              width: '100%',
-              backgroundColor: '#22c55e'
-            }}
-          >
-            매칭 준비 보내기
-          </Button>
-        </View>
-      )}
 
       {/* 매칭 완료 상태 표시 - 하단 고정 */}
       {chatRoomStatus === RecruitStatus.RecruitOver && (
