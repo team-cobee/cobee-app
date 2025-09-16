@@ -38,7 +38,7 @@ interface ChatScreenProps {
 export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToCreateRoom, chatRoomState, onLeaveChatRoom }: ChatScreenProps) {
   const [message, setMessage] = useState<MessageInfo[]>([]);
   const [chatRoomInfo, setChatRoomInfo] = useState<ChatRoom | null>(null);
-  const [debugIsOwner, setDebugIsOwner] = useState(chatRoomState.isOwner);
+  const [IsOwnerChat, setIsOwnerChat] = useState(chatRoomState.isOwner);
   // 채팅방 상태 관리
   const [chatRoomStatus, setchatRoomStatus] = useState<RecruitStatus>(RecruitStatus.OnContact);
   const [roomId, setRoomId] = useState<number | null>(chatRoomState.roomId ?? null);
@@ -146,6 +146,7 @@ const getMyChatInfo = async () => {
 
   // ---- STOMP 연결: roomId가 결정된 뒤에만 ----
 useEffect(() => {
+  loginUser?.isHost === true ? setIsOwnerChat(true) : setIsOwnerChat(false);
   if (!roomId) {
     if (stompRef.current?.connected) {
       stompRef.current.deactivate();
@@ -229,12 +230,6 @@ const handleSendMessage = () => {
 
   setInput('');
 };
-
-  // 권한 토글 기능 (디버그용)
-  const toggleOwnerStatus = () => {
-    setDebugIsOwner(!debugIsOwner);
-    Alert.alert('알림', debugIsOwner ? '멤버 모드로 변경됩니다' : '방장 모드로 변경됩니다');
-  };
 
   // Submit 키로 메시지 전송 (React Native)
   const handleSubmitEditing = () => {
@@ -372,34 +367,9 @@ const handleSendMessage = () => {
               </Text>
             </View>
           </View>
+ 
           <TouchableOpacity onPress={onNavigateToSettings}>
             <Ionicons name="settings" size={18} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 디버그 토글 (개발용) */}
-      <View style={{ 
-        backgroundColor: '#fef3c7', 
-        paddingHorizontal: 16, 
-        paddingVertical: 8, 
-        borderBottomWidth: 1, 
-        borderBottomColor: '#fbbf24' 
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontSize: 12, color: '#92400e' }}>
-            현재 모드: {debugIsOwner ? '방장' : '멤버'} | 상태: {chatRoomStatus}
-          </Text>
-          <TouchableOpacity
-            onPress={toggleOwnerStatus}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-          >
-            <Text style={{ fontSize: 12, color: '#92400e' }}>
-              {debugIsOwner ? '👑 방장 모드' : '👥 멤버 모드'}
-            </Text>
-            <Text style={{ fontSize: 16, color: '#92400e' }}>
-              {debugIsOwner ? '⏸' : '▶'}
-            </Text>
           </TouchableOpacity>
         </View>
       </View>

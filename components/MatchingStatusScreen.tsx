@@ -10,7 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Double } from 'react-native/Libraries/Types/CodegenTypes';
-import { Gender, Lifestyle, MatchStatus, Personality, Pets, RecruitStatus, Smoking, Snoring } from '@/types/enums';
+import { Gender, Lifestyle, MatchStatus, Personality, Pets, RecruitStatus, Smoking, Snoring, SocialType } from '@/types/enums';
+import { set } from 'react-hook-form';
 
 interface MatchingStatusScreenProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ interface RecruitResponse{
   createdAt : string,
   status : RecruitStatus,
 
+  authorId : number,
   authorName : string,
   authorGender : Gender,
   birthdate : string,
@@ -51,16 +53,27 @@ interface RecruitResponse{
 
   detailDescript : string,
   additionalDescript : string,
-
-   imgUrl: string[] | null;
+  imgUrl: string[] | null;
 }
 
+interface authInfo {
+  id : number,
+  name : string,
+  email : string,
+  birthDate: string,
+  gender : Gender
+  socialType: SocialType,
+  isCompleted : boolean,
+  ocrValidation: boolean | null,
+  isHost: true
+}
 
 export default function MatchingStatusScreen({ onBack, onNavigateToJob }: MatchingStatusScreenProps) {
   const [activeTab, setActiveTab] = useState('applied');
   const [myOnWaitPost, setMyOnwaitPost] = useState<RecruitResponse[]>([]);
   const [myOnMatchingPost, setMyMatchingPost] = useState<RecruitResponse[]>([]);  // accept 받으면 
   const [myMatchedPost, setMyMatchedPost] = useState<RecruitResponse[]>([]);
+  const [userInfo, setUserInfo] = useState<authInfo | null>(null);
 
   useEffect(() => {
       let cancelled = false;
@@ -68,19 +81,22 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
       const load = async () => {
    
         try {
-          const myOnWait = await api.get("/apply/my/onWait");
-          const myOnMatching = await api.get("/apply/my/matching");
-          const myMatched = await api.get("/apply/my/matched");
+          const myOnWait = await api.get(`/apply/my/onWait`);  // 지원한 구인글 
+          const myOnMatching = await api.get(`/apply/my/matching`); // 초대받은 구인글 
+          const myMatched = await api.get(`/apply/my/matched`);  // 매칭완료 구인글 
+          const userRes = await api.get(`/auth`);
 
           if (cancelled) return;
         
           setMyOnwaitPost(myOnWait.data?.data ?? null);
           setMyMatchingPost(myOnMatching.data?.data ?? null);
           setMyMatchedPost(myMatched.data?.data ?? null);
+          setUserInfo(userRes.data?.data ?? null);
           
           console.log(myOnWait.data);
           console.log(myOnMatching.data);
           console.log(myMatched.data);
+          console.log(userRes.data);
 
         } catch (e) {
           console.error(e);
@@ -137,11 +153,11 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={{ fontSize: 12, color: '#6b7280' }}>🕐</Text>
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>
+              {/* <Text style={{ fontSize: 12, color: '#6b7280' }}>
                 {job.appliedAt && `지원일: ${job.appliedAt}`}
                 {job.matchedAt && `매칭일: ${job.matchedAt}`}
                 {job.invitedAt && `초대일: ${job.invitedAt}`}
-              </Text>
+              </Text> */}
             </View>
             {job.status === MatchStatus.Matched && (
               <Text style={{ color: '#22c55e', fontSize: 16 }}>✓</Text>

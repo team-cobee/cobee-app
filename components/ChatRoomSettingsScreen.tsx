@@ -241,11 +241,13 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   const [members, setMembers] = useState<ChatRoomMember[]>([]);
   const [recruitStatus, setRecruitStatus] = useState<RecruitStatus>(RecruitStatus.Recruiting);
   const [exitRoom, setExitRoom] = useState(false);
+  const [IsOwnerChat, setIsOwnerChat] = useState(false);
+  const [loginUser, setLoginUser] = useState<AuthMember>();
 
   interface ChatRoomMember {
     id : number;
     name : string;
-    isHost : Boolean;
+    host : Boolean;
   }
 
   interface ChatRoomInfo {
@@ -256,10 +258,22 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
     currentUserCoun : number;
   }
 
+  interface AuthMember {
+  id : number;
+  name : string;
+  isHost : boolean;
+}
+
   interface RecruitInfo { // TODO : 구인글 조회 & 수정 api로 상태 수정.. 
       status : RecruitStatus
   }
 
+  const getUserInfo = async () => {
+      const res = await api.get(`/auth`);
+      console.log(res);
+      setLoginUser(res.data.data);
+  }
+  
   const fetchChatRoomInfo = async () => {
     const res = await api.get(`chat/rooms/my`);
     setChatRoom(res.data.data);
@@ -315,6 +329,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
 
   useEffect(() => {
    fetchChatRoomInfo();
+   getUserInfo();
  }, []);
 
   useEffect(() => {
@@ -347,6 +362,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                   <TextInput
                     style={styles.roomNameInput}
                     value={chatRoom?.name}
+                    placeholder={chatRoom?.name}
                     onChangeText={setNewRoomName}
                     autoFocus
                   />
@@ -384,7 +400,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
             </View>
           </View>
           
-          {(members ?? []).map((member) => (
+          {members.map((member) => (
             <View key={member.id} style={styles.memberItem}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{member.name}</Text>
@@ -393,7 +409,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
               <View style={styles.memberInfo}>
                 <View style={styles.roomNameContainer}>
                   <Text style={styles.memberName}>{member.name}</Text>
-                  {member.isHost && (
+                  {member.host &&  (
                     <View style={styles.ownerBadge}>
                       <Text style={styles.ownerText}>👑 방장</Text>
                     </View>
@@ -406,7 +422,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                 </Text>
               </View>
               
-              {/*chatRoom.isOwner && !*/ member.isHost && (
+              {member.host === true && (
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => {
@@ -417,7 +433,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                   <Ionicons name="trash" size={16} color="#ef4444" />
                 </TouchableOpacity>
               )}
-            </View>
+            </View> 
           ))}
         </View>
 
