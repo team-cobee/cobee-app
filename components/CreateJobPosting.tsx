@@ -1,5 +1,6 @@
 import { Gender, MatchStatus, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import React, { useState } from 'react';
+import AddressSearchModal from '../components/AddressSearchModal';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
 } from 'react-native';
@@ -85,7 +86,8 @@ const styles = StyleSheet.create({
   stepTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   stepSubtitle: { fontSize: 14, color: '#6b7280', textAlign: 'center' },
   formSection: { gap: 24 },
-  fieldContainer: { gap: 8 },
+  fieldContainer: { gap: 1},
+  addressContainer: {flexDirection: 'row', gap: 8, alignItems: 'center' },
   label: { fontSize: 14, fontWeight: '500', color: '#374151' },
   optionsContainer: { gap: 12 },
   optionButton: {
@@ -112,6 +114,8 @@ export default function CreateJobPosting({
 }: CreateJobPostingProps) {
   const [step, setStep] = useState(1);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [open, setOpen] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState('');
 
   /** 폼 상태(화면 → 서버 요청으로 변환할 로우 데이터) */
   const [formData, setFormData] = useState({
@@ -119,13 +123,13 @@ export default function CreateJobPosting({
     title: '',
     recruitCount: 2,
     depositMin: 500,     // → rentCostMin
-    depositMax: 2000,    // → rentCostMax
-    monthlyRentMin: 30,  // → monthlyCostMin
-    monthlyRentMax: 150, // → monthlyCostMax
+    depositMax: 1000,    // → rentCostMax
+    monthlyRentMin: 50,  // → monthlyCostMin
+    monthlyRentMax: 100, // → monthlyCostMax
 
     // Step 2
-    ageMin: 18,
-    ageMax: 100,
+    ageMin: 20,
+    ageMax: 90,
     lifestyle: '',       // 'morning' | 'evening' | (기타 → 'NONE')
     personality: '',     // 'introvert' | 'extrovert' | 'none'
     smoking: '',         // 'no' | 'yes' | 'any'
@@ -484,63 +488,134 @@ export default function CreateJobPosting({
     </View>
   );
 
-  /** ─── Step 4: 주소/좌표/거리 + 상세/추가 설명 ─── */
-  const renderStep4 = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>{formData.hasRoom === 'has' ? '방 상세 정보' : '추가 정보'}</Text>
-        <Text style={styles.stepSubtitle}>
-          {formData.hasRoom === 'has' ? '방의 위치와 상세 정보를 입력해주세요' : '추가로 전달하고 싶은 내용을 작성해주세요'}
-        </Text>
-      </View>
+  /** ─── Step 4: 주소/좌표 + 이미지 추가 ─── */
+  // const renderStep4 = () => (
+  //   <View style={styles.stepContainer}>
+  //     <Text style={styles.stepTitle}>상세 설명</Text>
+  //       <Text style={styles.stepSubtitle}></Text>
+  //     <View style={styles.formSection}>
+  //       {formData.hasRoom === 'has' && (
+  //         <>
+  //           <View style={styles.fieldContainer}>
+  //             <Text style={styles.label}>주소</Text>
+  //             <Input
+  //               placeholder="방 주소를 입력해주세요."
+  //               value={formData.address}
+  //               onChangeText={(t) => {setSelectedAddress}}
+  //               //onChangeText={(t) => setFormData({ ...formData, address: t })}
+  //             />
+  //             <TouchableOpacity onPress={() => setOpen(true)}>
+  //               <Text>검색</Text>
+  //             </TouchableOpacity>
+  //           </View>
+  //         </>
+  //       )} : {<View style={styles.fieldContainer}>
+  //             <Text style={styles.label}>주소 정보</Text>
+  //             <Input
+  //               placeholder="ex) 서울시 강남구 역삼동"
+  //               value={formData.address}
+  //               onChangeText={(t) => setFormData({ ...formData, address: t })}
+  //             />
+  //           </View>}
 
-      <View style={styles.formSection}>
-        {formData.hasRoom === 'has' && (
-          <>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>주소</Text>
-              <Input
-                placeholder="ex) 서울시 강남구 역삼동"
-                value={formData.address}
-                onChangeText={(t) => setFormData({ ...formData, address: t })}
-              />
-            </View>
-          </>
-        )}
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>상세 설명 (detailDescription)</Text>
-          <Input
-            placeholder="추가로 알려주고 싶은 내용을 자유롭게 작성해주세요"
-            value={formData.detailDescription}
-            onChangeText={(t) => setFormData({ ...formData, detailDescription: t })}
-            multiline
-            style={{ height: 100, textAlignVertical: 'top' }}
-          />
-        </View>
+  //           <View style={styles.formSection}>
+  //       <View style={styles.fieldContainer}>
+  //         <Text style={styles.label}>이미지 URL 추가</Text>
+  //         <View style={styles.urlRow}>
+  //           <Input
+  //             placeholder="https://example.com/image.jpg"
+  //             value={newImageUrl}
+  //             onChangeText={setNewImageUrl}
+  //             style={{ flex: 1 }}
+  //             autoCapitalize="none"
+  //           />
+  //           <Button
+  //             onPress={() => {
+  //               const url = newImageUrl.trim();
+  //               if (!url) return;
+  //               setFormData({ ...formData, images: [...formData.images, url] });
+  //               setNewImageUrl('');
+  //             }}
+  //           >
+  //             추가
+  //           </Button>
+  //         </View>
 
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>추가 설명 (additionalDescription)</Text>
-          <Input
-            placeholder="선택 입력"
-            value={formData.additionalDescription}
-            onChangeText={(t) => setFormData({ ...formData, additionalDescription: t })}
-            multiline
-            style={{ height: 80, textAlignVertical: 'top' }}
-          />
-        </View>
-      </View>
+  //         {formData.images.map((url, idx) => (
+  //           <View key={`${url}-${idx}`} style={styles.urlItem}>
+  //             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+  //               <Text style={{ flex: 1, marginRight: 8 }} numberOfLines={1}>{url}</Text>
+  //               <Button
+  //                 variant="outline"
+  //                 size="sm"
+  //                 onPress={() =>
+  //                   setFormData({
+  //                     ...formData,
+  //                     images: formData.images.filter((_, i) => i !== idx),
+  //                   })
+  //                 }
+  //               >
+  //                 삭제
+  //               </Button>
+  //             </View>
+  //           </View>
+  //         ))}
+  //       </View>
+  //     </View>
+  //     </View>
+
+  //     <AddressSearchModal
+  //       visible={open}
+  //       onClose={() => setOpen(false)}
+  //       onSelect={(addr) => {
+  //         setOpen(false);
+  //         setSelectedAddress(addr.fullAddress); // 여기서 네가 원하는 필드 골라서 저장하면 됨
+  //         // addr.postalCode / addr.roadAddress / addr.jibunAddress / addr.sido / ...
+  //       }}
+  //     />
+  //   </View>
+  // );
+  /** ─── Step 4: 주소/좌표 + 이미지 추가 ─── */
+const renderStep4 = () => (
+  <View style={styles.stepContainer}>
+    <View style={styles.stepHeader}>
+      <Text style={styles.stepTitle}>상세 설명</Text>
+      <Text style={styles.stepSubtitle}>
+        {formData.hasRoom === 'has' ? '방 주소를 검색해 주세요' : '희망 지역을 입력해 주세요'}
+      </Text>
     </View>
-  );
 
-  /** ─── Step 5: 이미지 URL 리스트 ─── */
-  const renderStep5 = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>사진 업로드</Text>
-        <Text style={styles.stepSubtitle}>이미지 URL을 추가해주세요 (여러 개 가능)</Text>
-      </View>
+    <View style={styles.addressContainer}>
+      {formData.hasRoom === 'has' ? (
+        // ✅ 방이 있는 경우: 주소 검색 버튼 + 입력
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>주소</Text>
+          <Input
+            placeholder="방 주소를 입력하거나 검색 버튼으로 선택"
+            value={formData.address}
+            onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
+          />
+          <TouchableOpacity onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
+            <Text style={ {backgroundColor: '#111827', borderRadius: 8, height: 44, paddingHorizontal: 16, justifyContent: 'center'} }>검색</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        // ✅ 함께 방을 찾는 경우: 자유 입력
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>주소</Text>
+          <Input
+            placeholder="방 주소를 입력하거나 검색 버튼으로 선택"
+            value={formData.address}
+            onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
+          />
+          <TouchableOpacity onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
+            <Text style={ {backgroundColor: '#111827', borderRadius: 8, height: 44, paddingHorizontal: 16, justifyContent: 'center'} }>검색</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
+      {/* 이하 이미지 URL 추가 섹션은 기존 코드 유지 */}
       <View style={styles.formSection}>
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>이미지 URL 추가</Text>
@@ -585,6 +660,59 @@ export default function CreateJobPosting({
           ))}
         </View>
       </View>
+    </View>
+
+    {/* ✅ 주소 선택 모달 - 선택 시 formData.address도 업데이트 */}
+    <AddressSearchModal
+      visible={open}
+      onClose={() => setOpen(false)}
+      onSelect={(addr) => {
+        // 선택된 주소를 입력창에 바로 반영
+        setFormData((prev) => ({ ...prev, address: addr.fullAddress }));
+        // AddressSearchModal 쪽 handleMessage에서 onClose를 이미 부르지만,
+        // 혹시 몰라서 중복 닫기 방지하려면 여기서는 안 불러도 됩니다.
+      }}
+    />
+  </View>
+);
+
+
+  /** ─── Step 5: 상세정보/ 추가정보 입력 ─── */
+  const renderStep5 = () => (
+    <View style={styles.stepContainer}>
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepTitle}>상세 설명</Text>
+        <Text style={styles.stepSubtitle}>구인글에 대한 상세 정보를 입력해주세요 (선택)</Text>
+      </View>
+
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepTitle}>{formData.hasRoom === 'has' ? '방 상세 정보' : '추가 정보'}</Text>
+        <Text style={styles.stepSubtitle}>
+          {formData.hasRoom === 'has' ? '방의 위치와 상세 정보를 입력해주세요' : '추가로 전달하고 싶은 내용을 작성해주세요'}
+        </Text>
+      </View>
+
+      <View style={styles.fieldContainer}>
+          <Text style={styles.label}>상세 설명 (detailDescription)</Text>
+          <Input
+            placeholder="추가로 알려주고 싶은 내용을 자유롭게 작성해주세요"
+            value={formData.detailDescription}
+            onChangeText={(t) => setFormData({ ...formData, detailDescription: t })}
+            multiline
+            style={{ height: 100, textAlignVertical: 'top' }}
+          />
+        </View>
+
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>추가 설명 (additionalDescription)</Text>
+          <Input
+            placeholder="선택 입력"
+            value={formData.additionalDescription}
+            onChangeText={(t) => setFormData({ ...formData, additionalDescription: t })}
+            multiline
+            style={{ height: 80, textAlignVertical: 'top' }}
+          />
+        </View>
     </View>
   );
 

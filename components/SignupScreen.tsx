@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { api, BASE_URL } from '@/api/api';                // api는 지금은 안 써도 됨
+import { api, ocrApi, BASE_URL, OCR_URL } from '@/api/api';                // api는 지금은 안 써도 됨
 import { getAccessToken } from '@/api/tokenStorage';  
 import { Dimensions } from 'react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
@@ -156,6 +156,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
       }
     );
     setOcrInfo(res.data.data);
+    console.log(ocrInfo);
     return res.data;
   } catch (err: any) {
     // axios는 4xx/5xx에서 throw 합니다.

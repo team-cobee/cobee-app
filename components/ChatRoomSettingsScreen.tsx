@@ -427,7 +427,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                   style={styles.removeButton}
                   onPress={() => {
                     setSelectedMember(member);
-                    setShowRemoveMemberModal(true);
+                    setShowRemoveMemberModal(false);
                   }}
                 >
                   <Ionicons name="trash" size={16} color="#ef4444" />

@@ -18,11 +18,17 @@ import axios, { AxiosError, AxiosHeaders, InternalAxiosRequestConfig } from 'axi
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from './tokenStorage';
 
 export const BASE_URL = 'https://cobee-server-108875465480.asia-northeast3.run.app';
+export const OCR_URL = "https://qwen-vl-service-108875465480.asia-southeast1.run.app";
 
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10_000,
 });
+
+export const ocrApi = axios.create({
+  baseURL : OCR_URL,
+  timeout : 10_000
+})
 
 // --- 요청 인터셉터: AsyncStorage에서 토큰 읽어서 붙이기
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {

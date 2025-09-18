@@ -27,6 +27,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Double } from "react-native/Libraries/Types/CodegenTypes";
 import { set } from "react-hook-form";
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 
 // --- UI 컴포넌트 재구현 ---
 
@@ -126,6 +127,7 @@ interface Reply {
 
 interface author {
   id: number,
+  name : string,
   birthdate : string
 }
 
@@ -228,6 +230,7 @@ export default function JobPostingDetail({
   const [loading, setLoading] = useState(true);
   const [logined, setAuthor] = useState<author>();
   const [publicProfile, setPublicProfile] = useState<profile>();
+  const [loginUser, setLoginUser] = useState<author | null>(null);
 
   const ageText = logined?.birthdate ? `${getAge(logined.birthdate)}세` : '';
 
@@ -244,14 +247,20 @@ export default function JobPostingDetail({
     }
   };
 
+  const getMyInfo = async () => {
+    const res = await api.get('/auth');
+    setAuthor(res.data?.data);
+  }
+
   useEffect(() => {
     if (!recruit?.postId) return;
       // 글 바뀔 때 상태 초기화 + 로딩 시작
+      getMyInfo();
       setIsApplied(false);
       setCheckingApplied(true);
       fetchCheckStatus(recruit.postId); 
     }, 
-  [recruit?.postId]);
+  [recruit?.postId, comments.length]);
 
 
 
@@ -266,8 +275,12 @@ export default function JobPostingDetail({
   } finally {
     setCheckingApplied(false); 
   }
-
 };
+
+const postComment = async (content: string, parentId: number | null) => { 
+  const res = await api.post(`/${loginUser?.id}/posts/${recruit?.postId}/comments`, { postId: jobId, content, parentId });  
+
+}
 
 
   useEffect(() => {
