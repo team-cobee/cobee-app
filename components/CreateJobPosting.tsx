@@ -1,5 +1,6 @@
 import { Gender, MatchStatus, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import React, { useState } from 'react';
+
 import AddressSearchModal from '../components/AddressSearchModal';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
@@ -153,6 +154,39 @@ export default function CreateJobPosting({
     additionalDescription: '',
   });
 
+  // const handleFileSelect = async () => {
+  //     try {
+  //       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //       if (status !== 'granted') {
+  //         Alert.alert('권한 필요', '사진 접근 권한을 허용해주세요.');
+  //         return;
+  //       }
+  
+  //       const result = await ImagePicker.launchImageLibraryAsync({
+  //         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //         base64: false,
+  //         quality: 0.9,
+  //         allowsEditing: false,
+  //       });
+  //       if (result.canceled) return;
+  
+  //       const asset = result.assets[0];
+  //       const mime = asset.mimeType ?? 'image/jpeg';
+  //       const name = asset.fileName ?? `id-${Date.now()}.jpg`;
+  
+  //       setFormData(prev => ({
+  //         ...prev,
+  //         idImageFile: asset.uri,
+  //         idImagePreview: asset.uri,
+  //       }));
+  
+  //       setUploadState({ isUploading: false, isProcessing: true, error: null }); // 로딩 표시
+  //       await processOCR({ uri: asset.uri, name, type: mime });
+  //     } catch (e: any) {
+  //       Alert.alert('오류', e?.message ?? '이미지 선택 중 오류가 발생했습니다.');
+  //     }
+  //   };
+
   const totalSteps = 5;
 
   const nextStep = () => (step < totalSteps ? setStep(step + 1) : handleSubmit());
@@ -209,7 +243,7 @@ export default function CreateJobPosting({
 
         hasRoom: formData.hasRoom === 'has',
 
-        imgUrl: formData.images,
+        imgUrl: formData?.images,
 
         address: formData.address,
         detailDescription: formData.detailDescription,
@@ -624,6 +658,7 @@ const renderStep4 = () => (
               placeholder="https://example.com/image.jpg"
               value={newImageUrl}
               onChangeText={setNewImageUrl}
+              //onPress={pickImage}
               style={{ flex: 1 }}
               autoCapitalize="none"
             />

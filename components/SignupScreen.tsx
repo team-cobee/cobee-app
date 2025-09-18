@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { api, ocrApi, BASE_URL, OCR_URL } from '@/api/api';                // api는 지금은 안 써도 됨
+import { api } from '@/api/api';                
 import { getAccessToken } from '@/api/tokenStorage';  
 import { Dimensions } from 'react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
@@ -50,6 +50,48 @@ type OcrVerifyResponse = {
   success: boolean;
 };
 
+// ===== 추가: 비동기 OCR 타입 & API 함수 (이 파일 안에서만 사용) =====
+type OcrTaskStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+type OcrVerificationResponseDto = {
+  id : number,
+  name?: string;
+  email?: string;                          
+  birthDate?: string;  // 19990101 로 옴 
+  gender? : string;
+  socialType : SocialType;
+  isCompleted : boolean;
+  ocrValidation : boolean;
+  isHost : boolean;
+  verificationMessage : string;
+  verificationStatus : string;
+};
+type OcrTask = {
+  status: OcrTaskStatus;
+  result: OcrVerificationResponseDto | null;
+  errorMessage?: string | null;
+};
+type OcrStartResponse = { taskId: string };
+
+type createUserPreferencesRequest = {
+  preferredGender : Gender,
+  additionalInfo : String,
+  lifeStyle : Lifestyle,
+  Personality : Personality,
+  smokingPreferences : boolean, 
+  snoringPreferences : boolean,
+  cohabitantCount : number,
+  petPreference : boolean
+}
+
+type createPublicProfilesRequest = {
+  info : string,
+  lifestyle : Lifestyle,
+  personality : Personality,
+  isSmoking : Smoking,
+  isSnoring : Snoring,
+  hasPet : Pets
+}
+
 // 주민등록번호: "######-#######" or 숫자만 들어와도 처리
 function maskRRN(v?: string) {
   if (!v) return '';
@@ -61,7 +103,7 @@ function maskRRN(v?: string) {
 }
 
 // 발급일: "YYYYMMDD" | "YYYY-MM-DD" | "YY.MM.DD" → "YYYY.MM.DD"
-function formatIssueDate(v?: string) {
+function formatBirthDateAndAge(v?: string) {
   if (!v) return '';
   const digits = v.replace(/\D/g, '');
   if (digits.length === 8) {
@@ -70,10 +112,81 @@ function formatIssueDate(v?: string) {
   return v; // 포맷을 모르면 원문 유지
 }
 
+const makeUserPreferences = async (input: createUserPreferencesRequest) => {
+  const token = await getAccessToken().catch(() => null);
+  const res = await api.post('/user-preferences', input, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  return res.data;
+};
+
+
+const makePublicProfile = async (input: createPublicProfilesRequest) => {
+  const token = await getAccessToken().catch(() => null);
+  const res = await api.post('/public-profiles', input, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  return res.data;
+};
+
+// 파일 업로드 → taskId 발급
+async function startOcrVerificationMultipart(file: { uri: string; name?: string; type?: string }) {
+  const token = await getAccessToken().catch(() => null);
+  const filename = file.name ?? `id-${Date.now()}.jpg`;
+  const mime = file.type ?? 'image/jpeg';
+
+  const form = new FormData();
+  form.append('image', { uri: file.uri, name: filename, type: mime } as any);
+
+  const res = await api.post<{ message: string; code: string; data: OcrStartResponse }>(
+    '/ocr/verify', // 컨트롤러의 basePath가 /ocr 라고 가정
+    form,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'Content-Type': 'multipart/form-data',
+        Accept: 'application/json',
+      },
+    }
+  );
+  console.log(res.data.data);
+  return res.data.data; // { taskId }
+}
+
+// task 상태 조회
+async function getOcrVerificationStatus(taskId: string) {
+  const token = await getAccessToken().catch(() => null);
+  const res = await api.get<{ message: string; code: string; data: OcrTask }>(
+    `/ocr/verify/status/${taskId}`,
+    { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+  );
+  console.log(res.data.data);
+  return res.data.data;
+}
+
+// 최종 서버 인증 상태 확인
+async function getOcrStatus() {
+  const token = await getAccessToken().catch(() => null);
+  const res = await api.get<{ message: string; code: string; data: { ocrVerified: boolean } }>(
+    '/ocr/status',
+    { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+  );
+  return res.data.data; // { ocrVerified: boolean }
+}
 
 export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScreenProps) {
   const [step, setStep] = useState(1);
   const SLIDER_WIDTH = Dimensions.get('window').width - 48; // 좌우 padding 고려해 적당히
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [ocrSuccess, setOcrSuccess] = useState<boolean | null>(null);
+  const [preferInfo, setPreferInfo] = useState<createUserPreferencesRequest | null>(null);
+
+  useEffect(() => {
+  return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, []);
+
   const [formData, setFormData] = useState({
     // 매칭 선호도 설정
     preferredGender: '',
@@ -93,7 +206,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
     myAge: 25,
     myLifestyle: '',
     myPersonality: '',
-    mySmokingStatus: '',
+    mySmokingStatus: ' ',
     mySnoringStatus: '',
     myPetStatus: '',
     info: '',
@@ -105,8 +218,8 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
     idImageDataUrl: null as string | null,
     // OCR 추출 정보
     extractedName: '',
-    extractedResidentNumber: '',
-    extractedIssueDate: ''
+    extractedBirthDate: '',
+    extractedGender: ''
   });
 
   const [uploadState, setUploadState] = useState({
@@ -115,7 +228,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
     error: null as string | null
   });
 
-  const [ocrInfo, setOcrInfo] = useState<OcrUserData | null>(null);
+  const [ocrInfo, setOcrInfo] = useState<OcrVerificationResponseDto | null>(null);
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
@@ -126,120 +239,146 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
   const createUserPreferences = () => {
   }
 
-  
-
-  const ocrVerify = async (file: { uri: string; name?: string; type?: string }): Promise<OcrVerifyResponse> => {
-  const token = await getAccessToken().catch(() => null);
-
-  const form = new FormData();
-  const filename = file.name ?? `id-${Date.now()}.jpg`;
-  const mime = file.type ?? 'image/jpeg';
-
-  form.append('image', {
-    uri: file.uri,      
-    name: filename,
-    type: mime,
-  } as any);
-
-  try {
-    const res = await api.post<OcrVerifyResponse>(
-      '/ocr/verify',      // ← api에 baseURL이 있으면 절대경로 쓰지 마세요
-      form,               // ← data
-      {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          // RN+axios에선 multipart는 자동 설정되지만, 명시해도 무방
-          'Content-Type': 'multipart/form-data',
-          Accept: 'application/json',
-        },
-        // transformRequest 기본값으로 FormData는 그대로 전송됩니다.
-      }
-    );
-    setOcrInfo(res.data.data);
-    console.log(ocrInfo);
-    return res.data;
-  } catch (err: any) {
-    // axios는 4xx/5xx에서 throw 합니다.
-    const msg =
-      err?.response?.data?.data?.verificationMessage ||
-      err?.response?.data?.message ||
-      err?.message ||
-      'OCR 업로드 실패';
-    throw new Error(msg);
-  }}
-
-const handleFileSelect = async () => {
-  try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('권한 필요', '사진 접근 권한을 허용해주세요.');
-      return;
+  // === 기존 ocrVerify 제거/대체: 비동기 작업 시작만 수행 (taskId 획득) ===
+  const ocrVerifyStart = async (file: { uri: string; name?: string; type?: string }) => {
+    try {
+      const data = await startOcrVerificationMultipart(file); // { taskId }
+      return data.taskId;
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'OCR 업로드 실패';
+      throw new Error(msg);
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: false,
-      quality: 0.9,
-      allowsEditing: false,
-    });
-    if (result.canceled) return;
+  const handleFileSelect = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '사진 접근 권한을 허용해주세요.');
+        return;
+      }
 
-    const asset = result.assets[0];
-    const mime = asset.mimeType ?? 'image/jpeg';
-    const name = asset.fileName ?? `id-${Date.now()}.jpg`;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        base64: false,
+        quality: 0.9,
+        allowsEditing: false,
+      });
+      if (result.canceled) return;
 
-    setFormData(prev => ({
-      ...prev,
-      idImageFile: asset.uri,
-      idImagePreview: asset.uri,
-    }));
+      const asset = result.assets[0];
+      const mime = asset.mimeType ?? 'image/jpeg';
+      const name = asset.fileName ?? `id-${Date.now()}.jpg`;
 
-    setUploadState({ isUploading: false, isProcessing: true, error: null }); // ← 추천
-    await processOCR({ uri: asset.uri, name, type: mime });
-  } catch (e: any) {
-    Alert.alert('오류', e?.message ?? '이미지 선택 중 오류가 발생했습니다.');
-  }
-};
-
-const processOCR = async (file: { uri: string; name?: string; type?: string }) => {
-  setUploadState({ isUploading: false, isProcessing: true, error: null });
-
-  try {
-    const res = await ocrVerify(file);
-    const d = res?.data;
-
-    // 요구사항: "data가 넘어오면 성공으로 간주"
-    const verified =
-      !!d && (typeof d.ocrValidation === 'boolean' ? d.ocrValidation : true);
-
-    if (verified) {
       setFormData(prev => ({
         ...prev,
-        idVerified: true,
-        // 들어오면 마스킹/포맷팅해서 세팅
-        extractedName: d?.name || '',
-        extractedResidentNumber: maskRRN(d?.residentRegistrationNumber),
-        extractedIssueDate: formatIssueDate(d?.issueDate),
-        // 미리보기는 이미 handleFileSelect에서 넣었음
+        idImageFile: asset.uri,
+        idImagePreview: asset.uri,
       }));
-      setUploadState({ isUploading: false, isProcessing: false, error: null });
-    } else {
-      setUploadState({
-        isUploading: false,
-        isProcessing: false,
-        error: d?.verificationMessage || '신분증 인식에 실패했습니다. 다시 시도해주세요.',
-      });
+
+      setUploadState({ isUploading: false, isProcessing: true, error: null }); // 로딩 표시
+      await processOCR({ uri: asset.uri, name, type: mime });
+    } catch (e: any) {
+      Alert.alert('오류', e?.message ?? '이미지 선택 중 오류가 발생했습니다.');
     }
+  };
+
+  // === 핵심: 업로드 → taskId → 폴링 → SUCCESS 시 데이터 반영/다음 버튼 활성화 ===
+  const processOCR = async (file: { uri: string; name?: string; type?: string }) => {
+  setUploadState({ isUploading: false, isProcessing: true, error: null });
+
+  const startedAt = Date.now();
+
+  try {
+    console.log('[OCR] 업로드 시작');
+    const taskId = await ocrVerifyStart(file);
+    if (!taskId) throw new Error('작업 ID를 받지 못했습니다.');
+    console.log('[OCR] 업로드 성공, taskId =', taskId);
+
+    const POLL_MS = 3000;
+    const MAX_ATTEMPTS = 80;
+    let attempts = 0;
+
+    const pollOnce = async () => {
+      attempts += 1;
+      const sinceStartSec = ((Date.now() - startedAt) / 1000).toFixed(1);
+      console.log(`[OCR] 폴링 시도 #${attempts} (${sinceStartSec}s 경과, 간격=${POLL_MS}ms), taskId=${taskId}`);
+
+      const t0 = Date.now();
+      try {
+        const t = await getOcrVerificationStatus(taskId);
+        const dt = Date.now() - t0;
+
+        console.log(`[OCR] 폴링 응답 #${attempts} (${dt}ms) status=${t.status}`,
+          t.status === 'FAILED' ? `, error="${t.errorMessage ?? ''}"` : '',
+          t.status === 'SUCCESS' ? `, resultKeys=${Object.keys(t.result ?? {})}` : ''
+        );
+
+        if (t.status === 'SUCCESS') {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+          setOcrSuccess(Boolean(t.result?.isCompleted));
+          setOcrInfo(t?.result);
+          console.log('[OCR] SUCCESS → 폴링 중단, onOcrSuccess 호출');
+          await onOcrSuccess(t);
+        } else if (t.status === 'FAILED') {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+          console.log('[OCR] FAILED → 폴링 중단');
+          throw new Error(t.errorMessage ?? 'OCR 인증에 실패했습니다.');
+        } else {
+          if (attempts >= MAX_ATTEMPTS) {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+            console.log('[OCR] MAX_ATTEMPTS 초과 → 폴링 중단');
+            throw new Error('처리가 지연되고 있습니다. 잠시 후 다시 시도해주세요.');
+          }
+        }
+      } catch (err: any) {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+        console.log(`[OCR] 폴링 오류 #${attempts}:`, err?.message ?? err);
+        throw err;
+      }
+    };
+
+    pollTimerRef.current = setInterval(pollOnce, POLL_MS);
+    console.log('[OCR] 폴링 시작(setInterval)');
+    await pollOnce(); // 즉시 1회 실행 (여기서 PENDING이면 계속 돌아야 함)
   } catch (err: any) {
     setUploadState({
       isUploading: false,
       isProcessing: false,
       error: err?.message ?? '인증 처리 중 오류가 발생했습니다.',
     });
+    console.log('[OCR] 처리 실패:', err?.message ?? err);
   }
 };
 
 
+  // SUCCESS 시 데이터 반영 + 서버 인증 상태 체크
+  const onOcrSuccess = async (task: OcrTask) => {
+    const r = task.result ?? null;
+
+    setFormData(prev => ({
+      ...prev,
+      idVerified: true,
+      extractedName: r?.name || '',
+      extractedBirthDate : r?.birthDate || '',
+      extractedGender: r?.gender ?? ''
+    }));
+
+    // 서버 최종 인증 상태 조회 (실패해도 치명적 X)
+    try {
+      const s = await getOcrStatus();
+      // 필요하면 s.ocrVerified를 어디 저장/표시
+    } catch {}
+
+    setUploadState({ isUploading: false, isProcessing: false, error: null });
+  };
 
   const resetUpload = () => {
     setFormData({
@@ -248,8 +387,8 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
       idImagePreview: null,
       idVerified: false,
       extractedName: '',
-      extractedResidentNumber: '',
-      extractedIssueDate: ''
+      extractedBirthDate: '',
+      extractedGender: ''
     });
     setUploadState({
       isUploading: false,
@@ -314,12 +453,12 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
                             <Text style={{ fontWeight: '500', color: '#14532d' }}>{formData.extractedName}</Text>
                           </View>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={{ color: '#15803d' }}>주민등록번호</Text>
-                            <Text style={{ fontWeight: '500', color: '#14532d' }}>{formData.extractedResidentNumber}</Text>
+                            <Text style={{ color: '#15803d' }}>생년월일</Text>
+                            <Text style={{ fontWeight: '500', color: '#14532d' }}>{formData.extractedBirthDate}</Text>
                           </View>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={{ color: '#15803d' }}>발급일자</Text>
-                            <Text style={{ fontWeight: '500', color: '#14532d' }}>{formData.extractedIssueDate}</Text>
+                            <Text style={{ color: '#15803d' }}>성별</Text>
+                            <Text style={{ fontWeight: '500', color: '#14532d' }}>{formData.extractedGender}</Text>
                           </View>
                         </View>
                       </View>
@@ -867,15 +1006,15 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
                   <View style={{ flex: 1, minWidth: '45%' }}>
                     <Text style={{ fontSize: 14, color: '#6b7280' }}>이름</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.name}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.name || formData.extractedName}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: '45%' }}>
                     <Text style={{ fontSize: 14, color: '#6b7280' }}>성별</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.gender}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.gender ? formData?.extractedGender : "희주"}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: '45%' }}>
                     <Text style={{ fontSize: 14, color: '#6b7280' }}>나이</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.birthDate}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '500' }}>{ocrInfo?.birthDate ? formData?.extractedBirthDate : "희주"}</Text>
                   </View>
                 </View>
               </CardContent>
@@ -1069,10 +1208,10 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
                   <Text style={{ color: '#6b7280' }}>동거 인원</Text>
                   <Text>최대 {formData.maxRoommates}명</Text>
                 </View>
-                {formData.extractedIssueDate && (
+                {formData.extractedGender && (
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: '#6b7280' }}>신분증 발급일</Text>
-                    <Text>{formData.extractedIssueDate}</Text>
+                    <Text style={{ color: '#6b7280' }}>인증 성별</Text>
+                    <Text>{formData.extractedGender}</Text>
                   </View>
                 )}
               </View>
@@ -1116,16 +1255,16 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
           <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: '600' }}>
-          {step === 6 ? '회원가입 완료' : '회원가입'}
+          {step === 5 ? '회원가입 완료' : '회원가입'}
         </Text>
         <View style={{ width: 24, height: 24 }} />
       </View>
 
       <ScrollView style={{ flex: 1, padding: 24 }}>
-        {step < 6 && (
+        {step < 5 && (
           <View style={{ marginBottom: 32 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => (
                 <View
                   key={i}
                   style={{
@@ -1152,7 +1291,7 @@ const processOCR = async (file: { uri: string; name?: string; type?: string }) =
                 style={{ 
                   height: 6,
                   borderRadius: 3,
-                  width: `${(step / 6) * 100}%`,
+                  width: `${(step / 5) * 100}%`,
                   backgroundColor: '#E6940C'
                 }}
               />
