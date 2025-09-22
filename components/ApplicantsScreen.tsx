@@ -8,6 +8,8 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import {api} from '../api/api';
+import { getAccessToken} from '@/api/tokenStorage';
 import { Gender, MatchStatus } from '@/types/enums';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
@@ -22,16 +24,6 @@ interface ApplicantsScreenProps {
   onNavigateToChat?: (userId: number) => void;
 }
 
-
-/** 테스트/API 호출용 동적 호출 
- * true  = 더미 데이터 사용(실제 API 호출 X)
- * false = 실제 API 호출 사용(아래 주석 해제 필요)
- */
-const USE_MOCK = true;
-
-// 시뮬레이터 환경에 맞게 바꾸기 
-const API_BASE_URL = 'http://localhost:8080';
-
 /** 백엔드 응답 스키마 */
 interface Applicant {
   id: number;
@@ -40,38 +32,6 @@ interface Applicant {
   gender: Gender;
   status: MatchStatus;
 }
-
-/** 테스트 더미 데이터 */
-const MOCK_APPLICANTS: Applicant[] = [
-  {
-    id: 1,
-    name: '이주연',
-    age: '20대 중반',
-    gender: Gender.Female,
-    status: MatchStatus.OnWait
-  },
-  {
-    id: 2,
-    name: '장희주',
-    age: '20대 초반',
-    gender: Gender.Female,
-    status: MatchStatus.OnWait
-  },
-  {
-    id: 3,
-    name: '강승윤',
-    age: '20대 초반',
-    gender: Gender.Male,
-    status: MatchStatus.Matching
-  },
-  {
-    id: 4,
-    name: '최민수',
-    age: '20대 중반',
-    gender: Gender.Male,
-    status: MatchStatus.Rejected
-  },
-];
 
 type FilterKey = 'all' | MatchStatus;
 const filters: { key: FilterKey; label: string }[] = [
@@ -140,36 +100,16 @@ export default function ApplicantsScreen({
 
   /* 데이터 로더 */
   const fetchApplicants = useCallback(async () => {
-    if (!USE_MOCK && (postId === null || postId === undefined)) {
-    setApplicants([]);
-    return;
-  }
-
     setLoading(true);
     setError(null);
-
-    try {
-      if (USE_MOCK) {
-        await new Promise((r) => setTimeout(r, 700)); // 0.7초 대기
-        setApplicants(MOCK_APPLICANTS);
-      } else {
-        // 실제 API 호출 모드 - 나중에 다시 수정해야함 
-        /*
-        const res = await fetch(`${API_BASE_URL}/apply/${postId}/all`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+    try {  
+        const res = await api.get(`apply/${postId}/all`,  {
+          headers: { Authorization: `Bearer ${getAccessToken}` },
         });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(`응답 오류(${res.status}) ${text}`);
-        }
-        setApplicants(normalized);
-        */
-      }
-    } catch (e: any) {
+        setApplicants(res.data.data);
+        console.log(applicants)
+        
+      } catch (e: any) {
       setError(e?.message ?? '목록을 불러오는 중 오류가 발생했습니다.');
       setApplicants([]);
     } finally {
@@ -292,8 +232,8 @@ export default function ApplicantsScreen({
 
           {/* 지원자 목록 */}
           <View style={{ gap: 16 }}>
-            {filteredApplicants.map((applicant) => (
-              <Card key={applicant.id}>
+            {filteredApplicants.map((applicant, idx) => (
+              <Card key={`${applicant.id}-${idx}`}>
                 <CardContent style={{ padding: 16 }}>
                   <View style={{ flexDirection: 'row', gap: 16 }}>
                     <Avatar style={{ width: 64, height: 64 }}>
