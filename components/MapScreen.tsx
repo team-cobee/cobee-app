@@ -8,29 +8,27 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
+import RNSlider from '@react-native-community/slider'; // ✅ 단일 슬라이더
+import MultiSlider from '@ptomasroos/react-native-multi-slider'; // ✅ 범위 슬라이더
 import { api } from "@/api/api";
-import { getCurrentLatLngOnce } from './location';
+import { getCurrentLatLngOnce } from "./location";
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
-import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
 import { Slider } from "./ui/slider";
-import { Double, Float } from "react-native/Libraries/Types/CodegenTypes";
 import { Gender, Lifestyle, Personality, Pets, RecruitStatus, Smoking, Snoring } from "@/types/enums";
 
-interface filterDto {
-  latitude?: Double;
-  longitude?: Double;
-  radius?: Double;
+type FilterDto = {
+  latitude?: number;
+  longitude?: number;
+  radius?: number; // km
   recruitCount?: number;
   rentCostMin?: number;
   rentCostMax?: number;
   monthlyCostMin?: number;
   monthlyCostMax?: number;
-}
+};
 
-interface RecruitResponse {
+type RecruitResponse = {
   postId: number;
   title: string;
   createdAt: string;
@@ -54,12 +52,12 @@ interface RecruitResponse {
   preferedSnoring?: Snoring;
   preferedHasPet?: Pets;
   address: string;
-  latitude: Double;
-  longitude: Double;
+  latitude: number;
+  longitude: number;
   detailDescript: string;
   additionalDescript: string;
   imgUrl: string[] | null;
-}
+};
 
 const toQuery = (params: Record<string, any>) => {
   const qp = new URLSearchParams();
@@ -74,10 +72,9 @@ const toQuery = (params: Record<string, any>) => {
   return qp.toString();
 };
 
-const fetchRecruitPosts = async (params: filterDto) => {
+const fetchRecruitPosts = async (params: FilterDto) => {
   const qs = toQuery(params);
   const data = await api.get(`/posts/filter${qs ? `?${qs}` : ""}`);
-  console.log(data.data);
   return data.data;
 };
 
@@ -102,108 +99,106 @@ interface MapScreenProps {
 export default function MapScreen({
   onNavigateToJob,
   mapScreenState,
-  setMapScreenState,
 }: MapScreenProps) {
   const screenHeight = Dimensions.get("window").height;
-  // const [region, setRegion] = useState<Region>({
-  //   latitude: 37.5665,
-  //   longitude: 126.978,
-  //   latitudeDelta: 0.05,
-  //   longitudeDelta: 0.05,
-  // });
+
+  // === 위치/지도 상태 ===
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [centerReady, setCenterReady] = useState(false);
   const [posts, setPosts] = useState<RecruitResponse[]>([]);
-  const [currentLatitude, setLatitude] = useState<Float>();
-  const [currentLongitude, setLongitude] = useState<Float>();
-    const initialCenterRef = useRef<{ lat: Float; lng: Float } | null>({
-    lat: currentLatitude,
-    lng: currentLongitude
+
+  const [currentLatitude, setCurrentLatitude] = useState<number | null>(null);
+  const [currentLongitude, setCurrentLongitude] = useState<number | null>(null);
+
+  const initialCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Region은 latitude/longitude 키를 가져야 함!
+  const [region, setRegion] = useState<Region>({
+    latitude: 37.5665, // 임시(서울) - 권한 거부/실패 대비 기본값
+    longitude: 126.9780,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
   });
 
-  // 필터 상태 관리 개선
+  // === 필터 상태 ===
   const [appliedFilters, setAppliedFilters] = useState<{
-    radius?: number;
+    radius?: number; // km
     rentRange?: [number, number];
     depositRange?: [number, number];
     peopleCount?: number;
   }>({});
 
-  async function initMyPosition() {
-  try {
-    const { latitude, longitude } = await getCurrentLatLngOnce();
-    console.log('현재 좌표:', latitude, longitude);
-    setLatitude(currentLatitude);
-    setLongitude(currentLongitude);
-    console.log('저장 좌표:', currentLatitude, currentLongitude);
-  } catch (err) {
-    console.warn(err);
-    // 필요시 에러 코드에 따라 안내
-    // if (err instanceof LocationError && err.code === 'SERVICES_OFF') { ... }
-  }
-}
-
-  // 임시 필터 값들 (모달에서 사용)
-  const [tempRadius, setTempRadius] = useState<number>(2);
-  const [tempRentRange, setTempRentRange] = useState<[number, number]>([10, 100]);
-  const [tempDepositRange, setTempDepositRange] = useState<[number, number]>([1000, 3500]);
-  const [tempPeopleCount, setTempPeopleCount] = useState<number>(4);
-
+  // === UI/시트/모달 ===
+  const [searchQuery, setSearchQuery] = useState("");
   const [sheetState, setSheetState] = useState<"collapsed" | "partial" | "expanded">("collapsed");
   const sheetRef = useRef<any>(null);
   const COLLAPSED_HEIGHT = 0;
   const PARTIAL_HEIGHT = 300;
   const BOTTOM_BLOCK_HEIGHT = 60;
   const EXPANDED_HEIGHT = screenHeight - 64 - 80 - BOTTOM_BLOCK_HEIGHT;
-  const FILTER_BAR_HEIGHT = 0; // 오버레이 제거
+  const FILTER_BAR_HEIGHT = 0;
+  const getHeightForState = (state: typeof sheetState) =>
+    state === "collapsed" ? COLLAPSED_HEIGHT :
+    state === "partial"   ? PARTIAL_HEIGHT :
+                            EXPANDED_HEIGHT - FILTER_BAR_HEIGHT;
 
-  const getHeightForState = (state: typeof sheetState) => {
-    switch (state) {
-      case "collapsed":
-        return COLLAPSED_HEIGHT;
-      case "partial":
-        return PARTIAL_HEIGHT;
-      case "expanded":
-        return EXPANDED_HEIGHT - FILTER_BAR_HEIGHT;
-      default:
-        return COLLAPSED_HEIGHT;
-    }
-  };
-
-  const toggleBottomSheet = () => {
-    if (sheetState === "collapsed") setSheetState("partial");
-    else if (sheetState === "partial") setSheetState("expanded");
-    else setSheetState("collapsed");
-  };
-
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // 모달 상태
   const [openRadius, setOpenRadius] = useState(false);
   const [openRent, setOpenRent] = useState(false);
   const [openDeposit, setOpenDeposit] = useState(false);
   const [openPeople, setOpenPeople] = useState(false);
 
+  const [tempRadius, setTempRadius] = useState<number>(2);
+  const [tempRentRange, setTempRentRange] = useState<[number, number]>([10, 100]);
+  const [tempDepositRange, setTempDepositRange] = useState<[number, number]>([1000, 3500]);
+  const [tempPeopleCount, setTempPeopleCount] = useState<number>(4);
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // 데이터 로드 함수
-  const loadRecruits = useCallback(async (filterParams?: filterDto) => {
+  const toggleBottomSheet = () => {
+    setSheetState((s) => (s === "collapsed" ? "partial" : s === "partial" ? "expanded" : "collapsed"));
+  };
+
+  // ====== 현재 위치 1회 초기화 ======
+  const initMyPosition = useCallback(async () => {
+    try {
+      const { latitude, longitude } = await getCurrentLatLngOnce();
+      setHasLocationPermission(true);
+      setCurrentLatitude(latitude);
+      setCurrentLongitude(longitude);
+
+      // 지도 중심/필터 중심 동기화
+      setRegion((prev) => ({
+        ...prev,
+        latitude,
+        longitude,
+      }));
+      initialCenterRef.current = { lat: latitude, lng: longitude };
+      // 위치가 준비되면 위치 중심으로 최초 로드 (필터 없이 전체 or 반경 필터와 함께)
+      loadRecruitsRef.current(); // 아래 useRef 콜백 참고
+    } catch (e: any) {
+      // 권한 거부/서비스 꺼짐/타임아웃 등
+      setHasLocationPermission(false);
+      setErrorMsg(e?.message || "현재 위치를 가져오지 못했습니다.");
+      // 기본 서울 좌표 유지
+      initialCenterRef.current = { lat: region.latitude, lng: region.longitude };
+      loadRecruitsRef.current();
+    }
+  }, [region.latitude, region.longitude]);
+
+  // ====== 데이터 로드 함수 ======
+  const fetchFiltered = useCallback(async (filterParams?: FilterDto) => {
     setLoading(true);
     setErrorMsg(null);
     try {
       let data;
       if (filterParams && Object.keys(filterParams).length > 0) {
-        // 필터가 있으면 /posts/filter 호출
         data = await fetchRecruitPosts(filterParams);
       } else {
-        // 필터가 없으면 /recruits 호출
         const res = await api.get('/recruits');
         data = res.data?.data;
       }
-      setPosts(data || []);
-      console.log('Loaded posts:', data);
-    } catch (error) {
+      setPosts(Array.isArray(data) ? data : []);
+    } catch (error: any) {
       console.error('Error loading recruits:', error);
       setErrorMsg('데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
@@ -211,67 +206,74 @@ export default function MapScreen({
     }
   }, []);
 
-  // 초기 데이터 로드
-  useEffect(() => {
-    loadRecruits();
-    initMyPosition();
-  }, [loadRecruits]);
-
-  // 필터 파라미터 생성
-  const buildFilterParams = useCallback((): filterDto => {
-  const center = initialCenterRef.current!;
-  const params: filterDto = {
-    latitude: center.lat,
-    longitude: center.lng,
-  };
-
-  if (appliedFilters.radius !== undefined) {
-    // ✅ 서버가 km 기대 → km로 보냄 (곱하기 1000 제거)
-    params.radius = Math.round(appliedFilters.radius);
-  }
-  if (appliedFilters.peopleCount !== undefined) {
-    params.recruitCount = appliedFilters.peopleCount;
-  }
-  if (appliedFilters.depositRange !== undefined) {
-    params.rentCostMin = appliedFilters.depositRange[0];
-    params.rentCostMax = appliedFilters.depositRange[1];
-  }
-  if (appliedFilters.rentRange !== undefined) {
-    params.monthlyCostMin = appliedFilters.rentRange[0];
-    params.monthlyCostMax = appliedFilters.rentRange[1];
-  }
-
-  return params;
-}, [appliedFilters]);
-
-
-  // 필터가 변경될 때마다 API 호출
-  useEffect(() => {
-    const hasFilters = Object.keys(appliedFilters).length > 0;
-    if (hasFilters) {
-      const filterParams = buildFilterParams();
-      loadRecruits(filterParams);
-    } else {
-      loadRecruits();
+  // buildFilterParams: 위치가 준비된 뒤에만 center 사용
+  const buildFilterParams = useCallback((): FilterDto => {
+    const center = initialCenterRef.current;
+    const params: FilterDto = {};
+    if (center) {
+      params.latitude = center.lat;
+      params.longitude = center.lng;
     }
-  }, [appliedFilters, buildFilterParams, loadRecruits]);
+
+    if (appliedFilters.radius !== undefined) {
+      params.radius = Math.round(appliedFilters.radius); // 서버가 km 기대
+    }
+    if (appliedFilters.peopleCount !== undefined) {
+      params.recruitCount = appliedFilters.peopleCount;
+    }
+    if (appliedFilters.depositRange !== undefined) {
+      params.rentCostMin = appliedFilters.depositRange[0];
+      params.rentCostMax = appliedFilters.depositRange[1];
+    }
+    if (appliedFilters.rentRange !== undefined) {
+      params.monthlyCostMin = appliedFilters.rentRange[0];
+      params.monthlyCostMax = appliedFilters.rentRange[1];
+    }
+    return params;
+  }, [appliedFilters]);
+
+  // loadRecruits를 ref로 래핑해 초기 위치 세팅 이후에도 안전하게 호출
+  const loadRecruitsRef = useRef(() => {});
+  useEffect(() => {
+    loadRecruitsRef.current = () => {
+      const hasFilters = Object.keys(appliedFilters).length > 0;
+      const center = initialCenterRef.current;
+      if (hasFilters) {
+        const filterParams = buildFilterParams();
+        fetchFiltered(filterParams);
+      } else {
+        // 필터 없더라도, 위치가 준비되었으면 중심 좌표를 서버로 넘기는 정책이면 여기서 넘겨도 됨.
+        // 현재는 필터 없으면 /recruits 전체로딩 유지.
+        fetchFiltered();
+      }
+    };
+  }, [appliedFilters, buildFilterParams, fetchFiltered]);
+
+  // 최초 마운트: 위치 먼저
+  useEffect(() => {
+    initMyPosition();
+  }, [initMyPosition]);
+
+  // 필터 변경 시 재조회
+  useEffect(() => {
+    if (initialCenterRef.current) {
+      loadRecruitsRef.current();
+    }
+  }, [appliedFilters]);
 
   const filteredJobs = Array.isArray(posts)
-  ? posts.filter((job) => {
-      if (
-        searchQuery &&
-        !job.title?.toLowerCase?.().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      return true;
-    })
-  : [];
+    ? posts.filter((job) => {
+        if (searchQuery && !job.title?.toLowerCase?.().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+        return true;
+      })
+    : [];
 
-  // 필터 버튼 컴포넌트
+  // ====== UI 컴포넌트들 ======
   const TopLeftFilters = () => {
     const fmtKm = (v: number) => (v >= 1 ? `${v}km` : `${Math.round(v * 1000)}m`);
-    
+
     const radiusLabel = appliedFilters.radius !== undefined ? `~ ${fmtKm(appliedFilters.radius)}` : "반경";
     const rentLabel = appliedFilters.rentRange !== undefined ? `${appliedFilters.rentRange[0]}만원 ~ ${appliedFilters.rentRange[1]}만원` : "월세";
     const depositLabel = appliedFilters.depositRange !== undefined ? `${appliedFilters.depositRange[0]}만원 ~ ${appliedFilters.depositRange[1]}만원` : "보증금";
@@ -314,34 +316,34 @@ export default function MapScreen({
           alignItems: "center",
         }}
       >
-        <Btn 
-          label={radiusLabel} 
+        <Btn
+          label={radiusLabel}
           onPress={() => {
-            setTempRadius(appliedFilters.radius || 2);
+            setTempRadius(appliedFilters.radius ?? 2);
             setOpenRadius(true);
-          }} 
+          }}
           filled={appliedFilters.radius !== undefined}
         />
-        <Btn 
-          label={rentLabel} 
+        <Btn
+          label={rentLabel}
           onPress={() => {
-            setTempRentRange(appliedFilters.rentRange || [10, 100]);
+            setTempRentRange(appliedFilters.rentRange ?? [10, 100]);
             setOpenRent(true);
           }}
           filled={appliedFilters.rentRange !== undefined}
         />
-        <Btn 
-          label={depositLabel} 
+        <Btn
+          label={depositLabel}
           onPress={() => {
-            setTempDepositRange(appliedFilters.depositRange || [1000, 3500]);
+            setTempDepositRange(appliedFilters.depositRange ?? [1000, 3500]);
             setOpenDeposit(true);
           }}
           filled={appliedFilters.depositRange !== undefined}
         />
-        <Btn 
-          label={peopleLabel} 
+        <Btn
+          label={peopleLabel}
           onPress={() => {
-            setTempPeopleCount(appliedFilters.peopleCount || 4);
+            setTempPeopleCount(appliedFilters.peopleCount ?? 4);
             setOpenPeople(true);
           }}
           filled={appliedFilters.peopleCount !== undefined}
@@ -350,7 +352,6 @@ export default function MapScreen({
     );
   };
 
-  // 모달 컴포넌트
   const BottomSheetLike = ({
     visible,
     title,
@@ -378,14 +379,7 @@ export default function MapScreen({
           }}
         >
           <View style={{ alignItems: "center", marginBottom: 8 }}>
-            <View
-              style={{
-                width: 120,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: "#e5e7eb",
-              }}
-            />
+            <View style={{ width: 120, height: 6, borderRadius: 3, backgroundColor: "#e5e7eb" }} />
           </View>
           <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 16 }}>{title}</Text>
           {children}
@@ -438,18 +432,12 @@ export default function MapScreen({
       }}
     >
       <TouchableOpacity
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         onPress={toggleBottomSheet}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ fontWeight: "600", fontSize: 16 }}>
-            {searchQuery && searchQuery.trim() !== ""
-              ? `'${searchQuery}' 검색 결과`
-              : "근처 구인글"}
+            {searchQuery?.trim() ? `'${searchQuery}' 검색 결과` : "근처 구인글"}
           </Text>
           <Text
             style={{
@@ -461,14 +449,7 @@ export default function MapScreen({
             ⌄
           </Text>
         </View>
-        <View
-          style={{
-            backgroundColor: "#f3f4f6",
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 12,
-          }}
-        >
+        <View style={{ backgroundColor: "#f3f4f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
           <Text style={{ fontSize: 14, color: "#6b7280" }}>
             {Array.isArray(filteredJobs) ? filteredJobs.length : 0}개
           </Text>
@@ -525,18 +506,11 @@ export default function MapScreen({
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
                         <Text style={{ fontSize: 14, color: "#6b7280" }}>📍 {job.address}</Text>
                       </View>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          marginBottom: 8,
-                        }}
-                      >
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                         <Text style={{ fontSize: 18, fontWeight: "600", color: "#F7B32B" }}>
                           월 {job.monthlyCostMax}만원
                         </Text>
-                        {job.authorId && <Text style={{ fontSize: 14, color: "#6b7280" }}>{job.authorName}</Text>}
+                        {!!job.authorId && <Text style={{ fontSize: 14, color: "#6b7280" }}>{job.authorName}</Text>}
                       </View>
                     </View>
                   </View>
@@ -553,14 +527,7 @@ export default function MapScreen({
     <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
       {/* 검색 바 */}
       {mapScreenState?.showSearch && (
-        <View
-          style={{
-            backgroundColor: "#ffffff",
-            borderBottomWidth: 1,
-            borderBottomColor: "#e5e7eb",
-            padding: 16,
-          }}
-        >
+        <View style={{ backgroundColor: "#ffffff", borderBottomWidth: 1, borderBottomColor: "#e5e7eb", padding: 16 }}>
           <View style={{ position: "relative" }}>
             <View style={{ position: "absolute", left: 12, top: 12, zIndex: 1 }}>
               <Ionicons name="search" size={16} color="#9ca3af" />
@@ -579,11 +546,8 @@ export default function MapScreen({
                 backgroundColor: "#ffffff",
               }}
             />
-            {searchQuery && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery("")}
-                style={{ position: "absolute", right: 12, top: 12 }}
-              >
+            {!!searchQuery && (
+              <TouchableOpacity onPress={() => setSearchQuery("")} style={{ position: "absolute", right: 12, top: 12 }}>
                 <Ionicons name="close" size={16} color="#9ca3af" />
               </TouchableOpacity>
             )}
@@ -605,67 +569,26 @@ export default function MapScreen({
         <TopLeftFilters />
 
         {loading && (
-          <View
-            style={{
-              position: "absolute",
-              top: 16,
-              alignSelf: "center",
-              backgroundColor: "rgba(0,0,0,0.6)",
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 12,
-            }}
-          >
+          <View style={{ position: "absolute", top: 16, alignSelf: "center", backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 }}>
             <Text style={{ color: "#fff" }}>불러오는 중...</Text>
           </View>
         )}
 
         {!!errorMsg && (
-          <View
-            style={{
-              position: "absolute",
-              top: 16,
-              alignSelf: "center",
-              backgroundColor: "rgba(239,68,68,0.9)",
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 12,
-            }}
-          >
+          <View style={{ position: "absolute", top: 16, alignSelf: "center", backgroundColor: "rgba(239,68,68,0.9)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 }}>
             <Text style={{ color: "#fff" }}>{errorMsg}</Text>
           </View>
         )}
 
-        {/* 마커들 */}
-        {posts.map((p, idx) => (
-          <Marker
-            key={`g-${idx}-${p.postId}`}
-            coordinate={{ latitude: p.latitude, longitude: p.longitude }}
-            title={p.title}
-            description={p.address}
-            pinColor={"#3B82F6"}
-            onPress={() => setSheetState("partial")}
-          />
-        ))}
-
-        {posts.map((l) => (
-          <Marker
-            key={`l-${l.postId}`}
-            coordinate={{ latitude: l.latitude, longitude: l.longitude }}
-            title={l.address}
-            pinColor={"#10B981"}
-            onPress={() => setSheetState("partial")}
-          />
-        ))}
-
-        {filteredJobs
-          .filter((j) => typeof j.latitude === "object" && typeof j.longitude === "object")
-          .map((j) => (
+        {/* 마커: 중복 루프 제거, 숫자형인 것만 */}
+        {posts
+          .filter((p) => typeof p.latitude === "number" && typeof p.longitude === "number")
+          .map((p) => (
             <Marker
-              key={`post-${j.postId}`}
-              coordinate={{ latitude: Number(j.latitude), longitude: Number(j.longitude) }}
-              title={j.title}
-              description={j.address}
+              key={p.postId}
+              coordinate={{ latitude: p.latitude, longitude: p.longitude }}
+              title={p.title}
+              description={p.address}
               pinColor={"#F59E0B"}
               onPress={() => setSheetState("partial")}
             />
@@ -678,144 +601,109 @@ export default function MapScreen({
       {/* 모달들 */}
       {/* 반경 */}
       <BottomSheetLike
-  visible={openRadius}
-  title="반경"
-  onClose={() => setOpenRadius(false)}
-  onReset={() => {
-    setAppliedFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters.radius;
-      return newFilters;
-    });
-    setTempRadius(2); // 초기화
-    setOpenRadius(false);
-  }}
-  onConfirm={() => {
-setAppliedFilters(prev => ({ ...prev, radius: tempRadius }));
-    setOpenRadius(false);
-  }}
->
-  <Slider
-    value={[tempRadius]}
-    onValueChange={(v) => setTempRadius(Number(v[0]))}
-    min={0}
-    max={10}
-    step={0.1}
-  />
-  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-    <Text style={{ color: "#9ca3af" }}>0km</Text>
-    <Text style={{ fontWeight: "600" }}>~ {tempRadius}km</Text>
-    <Text style={{ color: "#9ca3af" }}>10km</Text>
-  </View>
-</BottomSheetLike>
+        visible={openRadius}
+        title="반경"
+        onClose={() => setOpenRadius(false)}
+        onReset={() => {
+          setAppliedFilters(prev => { const n = { ...prev }; delete n.radius; return n; });
+          setTempRadius(2);
+          setOpenRadius(false);
+        }}
+        onConfirm={() => { setAppliedFilters(prev => ({ ...prev, radius: tempRadius })); setOpenRadius(false); }}
+      >
+        <RNSlider
+          value={tempRadius}
+          onValueChange={(v) => setTempRadius(v)}
+          minimumValue={0}
+          maximumValue={10}
+          step={0.1}
+        />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+          <Text style={{ color: "#9ca3af" }}>0km</Text>
+          <Text style={{ fontWeight: "600" }}>~ {tempRadius.toFixed(1)}km</Text>
+          <Text style={{ color: "#9ca3af" }}>10km</Text>
+        </View>
+      </BottomSheetLike>
+
+      {/* 월세 */}
+      <BottomSheetLike
+        visible={openRent}
+        title="월세"
+        onClose={() => setOpenRent(false)}
+        onReset={() => {
+          setAppliedFilters(prev => { const n = { ...prev }; delete n.rentRange; return n; });
+          setTempRentRange([10, 100]); setOpenRent(false);
+        }}
+        onConfirm={() => { setAppliedFilters(prev => ({ ...prev, rentRange: tempRentRange })); setOpenRent(false); }}
+      >
+        <MultiSlider
+          values={tempRentRange}
+          onValuesChange={(vals) => setTempRentRange([Math.round(vals[0]), Math.round(vals[1])])}
+          min={10}
+          max={200}
+          step={1}
+          allowOverlap={false}
+          snapped
+        />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+          <Text style={{ color: "#9ca3af" }}>최소</Text>
+          <Text style={{ fontWeight: "600" }}>{tempRentRange[0]}만원 ~ {tempRentRange[1]}만원</Text>
+          <Text style={{ color: "#9ca3af" }}>최대</Text>
+        </View>
+      </BottomSheetLike>
+
+      <BottomSheetLike
+        visible={openDeposit}
+        title="보증금"
+        onClose={() => setOpenDeposit(false)}
+        onReset={() => {
+          setAppliedFilters(prev => { const n = { ...prev }; delete n.depositRange; return n; });
+          setTempDepositRange([1000, 3500]); setOpenDeposit(false);
+        }}
+        onConfirm={() => { setAppliedFilters(prev => ({ ...prev, depositRange: tempDepositRange })); setOpenDeposit(false); }}
+      >
+        <MultiSlider
+          values={tempDepositRange}
+          onValuesChange={(vals) => setTempDepositRange([Math.round(vals[0]), Math.round(vals[1])])}
+          min={0}
+          max={5000}
+          step={50}
+          allowOverlap={false}
+          snapped
+        />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+          <Text style={{ color: "#9ca3af" }}>0만원</Text>
+          <Text style={{ fontWeight: "600" }}>{tempDepositRange[0]}만원 ~ {tempDepositRange[1]}만원</Text>
+          <Text style={{ color: "#9ca3af" }}>5000만원</Text>
+        </View>
+      </BottomSheetLike>
 
 
-<BottomSheetLike
-  visible={openRent}
-  title="월세"
-  onClose={() => setOpenRent(false)}
-  onReset={() => {
-    setAppliedFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters.rentRange;
-      return newFilters;
-    });
-    setTempRentRange([10, 100]);
-    setOpenRent(false);
-  }}
-  onConfirm={() => {
-    setAppliedFilters(prev => ({
-      ...prev,
-      rentRange: tempRentRange
-    }));
-    setOpenRent(false);
-  }}
->
-  <Slider
-    value={tempRentRange}
-    onValueChange={(v) => setTempRentRange([Number(v[0]), Number(v[1])])}
-    min={10}
-    max={200}
-    step={1}
-  />
-  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-    <Text style={{ color: "#9ca3af" }}>최소</Text>
-    <Text style={{ fontWeight: "600" }}>{tempRentRange[0]}만원 ~ {tempRentRange[1]}만원</Text>
-    <Text style={{ color: "#9ca3af" }}>최대</Text>
-  </View>
-</BottomSheetLike>
+      {/* 인원 */}
+      <BottomSheetLike
+        visible={openPeople}
+        title="인원"
+        onClose={() => setOpenPeople(false)}
+        onReset={() => {
+          setAppliedFilters(prev => { const n = { ...prev }; delete n.peopleCount; return n; });
+          setTempPeopleCount(4); setOpenPeople(false);
+        }}
+        onConfirm={() => { setAppliedFilters(prev => ({ ...prev, peopleCount: tempPeopleCount })); setOpenPeople(false); }}
+      >
+        <RNSlider
+          value={tempPeopleCount}
+          onValueChange={(v) => setTempPeopleCount(Math.round(v))}
+          minimumValue={2}
+          maximumValue={10}
+          step={1}
+        />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+          <Text style={{ color: "#9ca3af" }}>2명 ~</Text>
+          <Text style={{ fontWeight: "600" }}>~ {tempPeopleCount}명</Text>
+          <Text style={{ color: "#9ca3af" }}>10명</Text>
+        </View>
+      </BottomSheetLike>
 
-
-<BottomSheetLike
-  visible={openDeposit}
-  title="보증금"
-  onClose={() => setOpenDeposit(false)}
-  onReset={() => {
-    setAppliedFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters.depositRange;
-      return newFilters;
-    });
-    setTempDepositRange([1000, 3500]);
-    setOpenDeposit(false);
-  }}
-  onConfirm={() => {
-    setAppliedFilters(prev => ({
-      ...prev,
-      depositRange: tempDepositRange
-    }));
-    setOpenDeposit(false);
-  }}
->
-  <Slider
-    value={tempDepositRange}
-    onValueChange={(v) => setTempDepositRange([Number(v[0]), Number(v[1])])}
-    min={0}
-    max={5000}
-    step={50}
-  />
-  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-    <Text style={{ color: "#9ca3af" }}>0만원</Text>
-    <Text style={{ fontWeight: "600" }}>{tempDepositRange[0]}만원 ~ {tempDepositRange[1]}만원</Text>
-    <Text style={{ color: "#9ca3af" }}>5000만원</Text>
-  </View>
-</BottomSheetLike>
-
-
-<BottomSheetLike
-  visible={openPeople}
-  title="인원"
-  onClose={() => setOpenPeople(false)}
-  onReset={() => {
-    setAppliedFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters.peopleCount;
-      return newFilters;
-    });
-    setTempPeopleCount(4);
-    setOpenPeople(false);
-  }}
-  onConfirm={() => {
-    setAppliedFilters(prev => ({
-      ...prev,
-      peopleCount: tempPeopleCount
-    }));
-    setOpenPeople(false);
-  }}
->
-  <Slider
-    value={[tempPeopleCount]}
-    onValueChange={(v) => setTempPeopleCount(Math.round(Number(v[0])))}
-    min={2}
-    max={10}
-    step={1}
-  />
-  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-    <Text style={{ color: "#9ca3af" }}>2명 ~</Text>
-    <Text style={{ fontWeight: "600" }}>~ {tempPeopleCount}명</Text>
-    <Text style={{ color: "#9ca3af" }}>10명</Text>
-  </View>
-</BottomSheetLike>
     </View>
   );
 }

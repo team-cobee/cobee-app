@@ -29,15 +29,15 @@
   }
 
 export enum Gender {
-  Male = 'MALE',
-  Female = 'FEMALE',
-  None = 'NONE',
+  Male = "MALE",
+  Female = "FEMALE",
+  None = "NONE",
 }
 
 export enum Lifestyle {
-  Morning = 'MORNING',
-  Evening = 'NIGHT',
-  None = 'NONE'
+  Morning = "MORNING",
+  Evening = "NIGHT",
+  None = "NONE"
 }
 
 export enum Personality {
