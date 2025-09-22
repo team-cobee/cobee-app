@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+//import { useRoute } from '@react-navigation/native';
+import { getAccessToken } from '@/api/tokenStorage';
+import { api  } from '@/api/api';
 import {
   View,
   Text,
@@ -8,72 +11,160 @@ import {
 } from 'react-native';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { RecruitStatus } from '@/types/enums';
 
 interface SelectJobPostingScreenProps {
   onBack?: () => void;
-  onComplete?: (roomId: string) => void;
+  onComplete?: (roomId: number) => void;
   onSelect?: () => void;
+  route?: { params?: { roomName?: string } };
+  roomName?: string;
 }
 
-interface JobPosting {
-  id: string;
-  title: string;
-  location: string;
-  recruitCount: number;
-  depositMin: number;
-  depositMax: number;
-  monthlyRentMin: number;
-  monthlyRentMax: number;
-  status: string;
-  roomType: string;
-  timeAgo: string;
-}
+interface post {
+    postId : number,
+    title : string, 
+    address : string, 
+    createdAt : string,
+    monthlyCostMin : number,
+    monthlyCostMax : number,
+    rentalCostMin : number,
+    rentalCostMax : number,
+    hasRoom : boolean,
+    status : RecruitStatus,
+    recruitCount : number
+  }
 
-export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJobPostingScreenProps) {
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  interface chat {
+    id : number;
+    name : string;
+    currentUserCount : number;
+  }
 
-  // 내가 작성한 구인글 목록 (목 데이터)
-  const myJobPostings: JobPosting[] = [
+export default function SelectJobPostingScreen(props: SelectJobPostingScreenProps) {
+  const { onBack, onComplete } = props;
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const [postList, setPostList] = useState<post[]>([]);
+  const roomName = (props.route?.params?.roomName ?? props.roomName ?? '').trim();
+  const [chatRoomInfo, setChatRoomInfo] = useState<chat>();
+    
+  const fetchMyPostInfo = async () => {
+  try {
+    const res = await api.get('/recruits/my');
+    const list = Array.isArray(res.data?.data) ? res.data.data : [];
+    setPostList(list);
+  } catch (error) {
+    console.error(error);
+    Alert.alert('에러', '나의 구인글 정보를 불러오지 못했습니다.');
+  }
+};
+
+
+// const createChatRoom = async (name: string, postId: number) => {
+//     const res = await api.post('/chat/rooms', { name, postId });
+
+//     // 백엔드가 success / code / message 형태를 줄 수 있으므로 체크
+//     if (res.data?.success === false) {
+//       console.error('채팅방 생성 실패:', res.data);
+//       throw new Error(res.data?.message || '채팅방 생성 실패');
+//     }
+
+//     const roomId = (res.data.data.id);
+//     console.log('생성된 채팅방 ID:', roomId);
+//     if (!roomId) {
+//       throw new Error('roomId를 응답에서 찾을 수 없습니다.');
+//     }
+//     return roomId;
+//   };
+
+
+const createChatRoom = async (name: string, postId: number) => {
+  const token = await getAccessToken().catch(() => null);
+
+  const res = await api.post(
+    '/chat/rooms',
+    { name, postId },
     {
-      id: '1',
-      title: '강남역 근처 깔끔한 원룸 룸메이트 구해요',
-      location: '서울 강남구 역삼동',
-      recruitCount: 3,
-      depositMin: 800,
-      depositMax: 1200,
-      monthlyRentMin: 60,
-      monthlyRentMax: 80,
-      status: '모집중',
-      roomType: '방 있음',
-      timeAgo: '2시간 전'
-    },
-    {
-      id: '2',
-      title: '신촌 투룸에서 함께 살 분 구합니다',
-      location: '서울 서대문구 신촌동',
-      recruitCount: 2,
-      depositMin: 1000,
-      depositMax: 1000,
-      monthlyRentMin: 55,
-      monthlyRentMax: 55,
-      status: '모집중',
-      roomType: '방 있음',
-      timeAgo: '1일 전'
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     }
-  ];
+  );
 
-  const handleSelectJob = (jobId: string) => {
+  if (res.data?.success === false) {
+    throw new Error(res.data?.message || '채팅방 생성 실패');
+  }
+
+  const roomId = res.data?.data?.id;
+  if (!roomId) throw new Error('roomId를 응답에서 찾을 수 없습니다.');
+  return roomId;
+};
+
+
+  const handleCreateRoom = async () => {
+    if (!selectedJobId) return;
+
+    if (!roomName.trim()) {
+      Alert.alert('알림', '채팅방 이름을 먼저 입력하세요.');
+      return;
+    }
+
+    try {
+      const roomId = await createChatRoom(roomName.trim(), selectedJobId);
+      Alert.alert('완료', '채팅방이 생성되었습니다!');
+      onComplete?.(roomId); // ← 성공시에만 호출
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert('에러', e?.message || e?.response?.data?.message || '채팅방 생성 실패');
+    }
+  };
+
+// const createChatRoom = async (name: string, postId : number) => {
+//       try {
+//         const res = await api.post(`/chat/rooms`, { name, postId }); 
+//         setChatRoomInfo(res.data?. null);
+//         console.log('채팅방 생성 성공:', res.data);
+//       } catch (e: any) {
+//         console.error(e);
+//         //Alert.alert('에러', e?.response?.data?.message ?? '상세 조회에 실패했습니다.');
+//       }
+//     };
+
+
+useEffect(() => {
+  fetchMyPostInfo();
+}, []);
+
+
+  const handleSelectJob = (jobId: number) => {
     setSelectedJobId(jobId);
   };
 
-  const handleCreateRoom = () => {
-    if (selectedJobId) {
-      // 채팅방 생성 로직
-      const roomId = 'room_' + Date.now();
-      Alert.alert('완료', '채팅방이 생성되었습니다!');
-      onComplete?.(roomId);
-    }
-  };
+  // const handleCreateRoom = () => {
+  //   if (selectedJobId) {
+  //     // 채팅방 생성 로직
+  //     Alert.alert('완료', '채팅방이 생성되었습니다!');
+  //     onComplete?.(chatRoomInfo?.id);
+  //     createChatRoom(roomName, selectedJobId);
+  //   }
+  // };
+
+  // const handleCreateRoom = async () => {
+  //   if (!selectedJobId) return;
+
+  //   if (!roomName.trim()) {
+  //     Alert.alert('알림', '채팅방 이름을 먼저 입력하세요.');
+  //     return;
+  //   }
+
+  //   try {
+  //     const roomId = await createChatRoom(roomName.trim(), selectedJobId);
+  //     Alert.alert('완료', '채팅방이 생성되었습니다!');
+  //     onComplete?.(roomId); // ← 성공시에만 호출
+  //   } catch (e: any) {
+  //     console.error(e);
+  //     Alert.alert('에러', e?.message || e?.response?.data?.message || '채팅방 생성 실패');
+  //   }
+  // };
+
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
@@ -145,28 +236,28 @@ export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJob
           </View>
 
           {/* 구인글 목록 */}
-          {myJobPostings.length > 0 ? (
+          {postList.length > 0 ? (
             <View style={{ gap: 16 }}>
-              {myJobPostings.map((job) => (
+              {postList.map((post) => (
                 <TouchableOpacity 
-                  key={job.id}
-                  onPress={() => handleSelectJob(job.id)}
+                  key={post.postId}
+                  onPress={() => handleSelectJob(post.postId)}
                   activeOpacity={0.7}
                 >
                   <Card style={{
-                    borderWidth: selectedJobId === job.id ? 2 : 1,
-                    borderColor: selectedJobId === job.id ? '#F7B32B' : '#e5e7eb',
+                    borderWidth: selectedJobId === post.postId ? 2 : 1,
+                    borderColor: selectedJobId === post.postId ? '#F7B32B' : '#e5e7eb',
                   }}>
                     <CardContent style={{ padding: 16 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontWeight: '500', fontSize: 14, lineHeight: 20, marginBottom: 8 }}>{job.title}</Text>
+                          <Text style={{ fontWeight: '500', fontSize: 14, lineHeight: 20, marginBottom: 8 }}>{post.title}</Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
                             <Text style={{ fontSize: 12, color: '#6b7280' }}>📍</Text>
-                            <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.location}</Text>
+                            <Text style={{ fontSize: 12, color: '#6b7280' }}>{post.address}</Text>
                           </View>
                         </View>
-                        {selectedJobId === job.id && (
+                        {selectedJobId === post.postId && (
                           <View style={{
                             width: 24,
                             height: 24,
@@ -184,24 +275,24 @@ export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJob
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 12, color: '#6b7280' }}>보증금</Text>
                           <Text style={{ fontWeight: '500', fontSize: 14 }}>
-                            {job.depositMin === job.depositMax 
-                              ? `${job.depositMin}만원`
-                              : `${job.depositMin}~${job.depositMax}만원`
+                            {post.rentalCostMin === post.rentalCostMax 
+                              ? `${post.rentalCostMin}만원`
+                              : `${post.rentalCostMin}~${post.rentalCostMax}만원`
                             }
                           </Text>
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 12, color: '#6b7280' }}>월세</Text>
                           <Text style={{ fontWeight: '500', fontSize: 14 }}>
-                            {job.monthlyRentMin === job.monthlyRentMax 
-                              ? `${job.monthlyRentMin}만원`
-                              : `${job.monthlyRentMin}~${job.monthlyRentMax}만원`
+                            {post.monthlyCostMin === post.monthlyCostMax 
+                              ? `${post.monthlyCostMax}만원`
+                              : `${post.monthlyCostMin}~${post.monthlyCostMax}만원`
                             }
                           </Text>
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 12, color: '#6b7280' }}>방 여부</Text>
-                          <Text style={{ fontWeight: '500', fontSize: 14 }}>{job.roomType}</Text>
+                          <Text style={{ fontWeight: '500', fontSize: 14 }}>{post.hasRoom}</Text>
                         </View>
                       </View>
 
@@ -209,12 +300,12 @@ export default function SelectJobPostingScreen({ onBack, onComplete }: SelectJob
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <Text style={{ fontSize: 12, color: '#6b7280' }}>👥</Text>
-                            <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.recruitCount}명</Text>
+                            <Text style={{ fontSize: 12, color: '#6b7280' }}>{post.recruitCount}명</Text>
                           </View>
-                          <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.timeAgo}</Text>
+                          <Text style={{ fontSize: 12, color: '#6b7280' }}>{post.createdAt}</Text>
                         </View>
                         <Badge>
-                          <Text style={{ fontSize: 12 }}>{job.status}</Text>
+                          <Text style={{ fontSize: 12 }}>{post.status}</Text>
                         </Badge>
                       </View>
                     </CardContent>

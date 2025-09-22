@@ -62,6 +62,14 @@ export default function App() {
   // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // 채팅
+  const [chatRoomState, setChatRoomState] = useState({
+    hasRoom: false,
+    isOwner: true,          // 필요에 따라 조정
+    roomId: null as string | null,
+});
+
+
   // Dynamic navigation function
   const navigate = (screen: string, params?: any) => {
     const newRoute = { screen, params };
@@ -114,7 +122,8 @@ export default function App() {
       case 'JobPostingDetail':
         return (
           <JobPostingDetail
-            jobId={params?.jobId || '1'}
+          key={Number(params?.jobId)}  
+            jobId={params?.jobId || 1}
             onBack={goBack}
           />
         );
@@ -156,7 +165,7 @@ export default function App() {
         return (
           <MatchingStatusScreen
             onBack={goBack}
-            onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
+            onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
           />
         );
 
@@ -164,18 +173,18 @@ export default function App() {
         return (
           <MyPostsScreen
             onBack={goBack}
-            onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
-            onNavigateToApplicants={(jobId: string) => navigate('Applicants', { jobId })}
-            onNavigateToEdit={(jobId: string) => navigate('CreateJobPosting', { editJobId: jobId })}
+            onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
+            onNavigateToApplicants={(postId: number) => navigate('Applicants', { postId })}
+            onNavigateToEdit={(jobId: number) => navigate('CreateJobPosting', { editJobId: jobId })}
           />
         );
 
       case 'Applicants':
         return (
           <ApplicantsScreen
-            jobId={params?.jobId}
+            postId={params?.postId}
             onBack={goBack}
-            onNavigateToProfile={(userId: string) => navigate('PublicProfileView', { userId })}
+            onNavigateToProfile={(userId: number) => navigate('PublicProfileView', { userId })}
             onNavigateToChat={() => setCurrentScreen('chat')}
           />
         );
@@ -200,7 +209,7 @@ export default function App() {
         return (
           <CreateChatRoomScreen
             onBack={goBack}
-            onNext={() => navigate('SelectJobPosting')}
+            onNext={(name) => navigate('SelectJobPosting', { roomName: name })}
           />
         );
 
@@ -215,8 +224,16 @@ export default function App() {
       case 'SelectJobPosting':
         return (
           <SelectJobPostingScreen
-            onBack={goBack}
-            onSelect={() => setCurrentRoute({ screen: 'Main' })}
+          onBack={goBack}
+          roomName={params?.roomName}        // ← 직접 prop으로 전달(간단)
+          onComplete={(roomId) => {
+            // 생성 성공 시: 채팅 탭 상태 업데이트 + 메인으로 이동 + 채팅 탭 선택
+            setChatRoomState({ hasRoom: true, isOwner: true, roomId: String(roomId) });
+            setCurrentRoute({ screen: 'Main' });
+            setCurrentScreen('chat');
+          }}
+            // onBack={goBack}
+            // onSelect={() => setCurrentRoute({ screen: 'Main' })}
           />
         );
 
@@ -235,9 +252,10 @@ export default function App() {
         case 'home':
           return (
             <HomeScreen
-              onNavigateToJob={(jobId: string) => navigate('JobPostingDetail', { jobId })}
+              onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
               onNavigateToCreateJob={() => navigate('CreateJobPosting')}
               onNavigateToBookmarks={() => navigate('BookmarkList')}
+              
             />
           );
         case 'map':
@@ -272,6 +290,7 @@ export default function App() {
               onNavigateToMyPosts={() => navigate('MyPosts')}
               onNavigateToMatching={() => navigate('MatchingStatus')}
               onNavigateToBookmarks={() => navigate('BookmarkList')}
+              onNavigateToPublicProfile={() => navigate('PublicProfileView', { userId: '1' /* 혹은 실제 유저 id */ })}
               onLogout={handleLogout}
             />
           );

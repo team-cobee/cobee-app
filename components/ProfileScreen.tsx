@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '@/api/api';
 import {
   View,
   Text,
@@ -13,6 +14,8 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
+import { Gender, SocialType } from '@/types/enums';
+import { getAccessToken } from '@/api/tokenStorage';
 
 interface ProfileScreenProps {
   onLogout?: () => void;
@@ -24,6 +27,7 @@ interface ProfileScreenProps {
   onNavigateToMatching?: () => void;
   onNavigateToBookmarks?: () => void;
   onNavigateToPublicProfile?: () => void;
+  onNavigateToLogin? : () => void;
 }
 
 const styles = StyleSheet.create({
@@ -176,10 +180,13 @@ export default function ProfileScreen({
   onNavigateToBookmarks, 
   onNavigateToMatching, 
   onNavigateToMyPosts, 
-  onNavigateToPublicProfile 
+  onNavigateToPublicProfile,
+  
 }: ProfileScreenProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [userInfo, setUserInfo] = useState<user | any>();
+  const [activity, setActivity] = useState<stats | null>(null);
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -191,30 +198,111 @@ export default function ProfileScreen({
 
   const confirmLogout = () => {
     setShowLogoutDialog(false);
-    onLogout();
+    logoutMember();
+    onLogout?.();
   };
 
   const confirmWithdraw = () => {
     setShowWithdrawDialog(false);
-    onWithdraw();
+    withDrawMember();
+    onLogout?.();
   };
 
-  const user = {
-    name: '김철수',
-    email: 'chulsoo@example.com',
-    avatar: '/avatar.jpg',
-    age: 25,
-    gender: '남성',
-    location: '서울 강남구',
-    verificationStatus: '인증완료',
-    joinDate: '2024.01.15'
+  // 회원 탈퇴 함수
+  const withDrawMember = async () => {
+    try {
+      const res = await api.delete('/auth/withdraw', {
+        headers: {
+          Authorization: `Bearer ${getAccessToken}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('회원 탈퇴 성공:', res.data);
+      // 성공 후 처리 (예: 로그아웃, 메인 화면 이동 등)
+    } catch (error) {
+      console.error('회원 탈퇴 실패:', error);
+      // 에러 처리
+    }
   };
 
-  const stats = {
-    myPosts: 3,
-    bookmarks: 12,
-    matches: 5
+  const logoutMember = async () => {
+    try {
+      const res = api.post('/auth/logout', {
+        headers: {
+          Authorization: `Bearer ${getAccessToken}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('회원 로그아웃 완료');
+    } catch {
+      console.log("회원 로그이웃 실패");
+    }
+  }
+
+
+  interface user { // api 명세에 맞게 수정
+    id : number;
+    name : string;
+    email : string;
+    birthDate : string | null;
+    gender : Gender;
+    socialType : SocialType;
+    isCompleted : Boolean;
+    ocrValidation : Boolean;
+    isHost : Boolean;
   };
+
+  interface stats {
+    myPosts: number;
+    bookmarks: number;
+    matches: number;
+  };
+
+  function getAge(birthdate: string): number {
+    const birthYear = parseInt(birthdate.substring(0, 4), 10);
+    const currentYear = new Date().getFullYear();
+    return currentYear - birthYear + 1;
+  }
+
+  const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
+
+  useEffect(() => {
+  let cancelled = false;
+
+  const fetchMyInfo = async () => {
+    try {
+      const res = await api.get('/auth'); 
+      if (!cancelled) setUserInfo(res.data?.data);
+      console.log(res);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
+    }
+  };
+  fetchMyInfo();          
+
+  return () => {        
+    cancelled = true;
+  };
+  }, []);                    // ← dep array는 useEffect 호출 안쪽의 두 번째 인자
+
+  // 통계 호출 api 
+  // useEffect( () => {
+  //   const fetchMyActivity = async () => {
+  //         try {
+  //           const res = await api.get('/public-profiles/activity');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
+  //           setActivity(res.data.data);
+  //         } catch (error) {
+  //           console.error(error);
+  //           Alert.alert('에러', '사용자 활동 정보를 불러오지 못했습니다.');
+  //         }
+  //       }
+  //   }
+  // ), []; 
+  
+  
+
 
   return (
     <View style={styles.container}>
@@ -235,47 +323,48 @@ export default function ProfileScreen({
           <CardContent style={{ padding: 24 }}>
             <View style={styles.profileSection}>
               <Avatar style={{ width: 64, height: 64 }}>
-                <AvatarFallback>{user.name[0]}</AvatarFallback>
+                <AvatarFallback>{userInfo?.name}</AvatarFallback>
               </Avatar>
               <View style={styles.profileInfo}>
-                <Text style={styles.userName}>{user.name}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                <Text style={styles.userDetails}>{user.age}세 • {user.gender} • {user.location}</Text>
-                <Text style={styles.userDetails}>가입일: {user.joinDate}</Text>
+                <Text style={styles.userName}>{userInfo?.name}</Text>
+                <Text style={styles.userEmail}>{userInfo?.email}</Text>
+                <Text style={styles.userDetails}>{ageText} • {userInfo?.gender}</Text>
                 <Badge variant="default" style={styles.verificationBadge}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="checkmark-circle" size={14} color="#10b981" />
-                    <Text style={{ color: '#10b981', fontSize: 12 }}>{user.verificationStatus}</Text>
+                    <Text style={{ color: '#10b981', fontSize: 12 }}>{userInfo?.verificationStatus}</Text>
                   </View>
                 </Badge>
               </View>
             </View>
 
-            {/* 통계 */}
-            <View style={styles.statsContainer}>
+            {/* 통계 - 나중에 추가*/}
+            {/* <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.myPosts}</Text>
+                <Text style={styles.statNumber}>{activity?.myPosts}</Text>
                 <Text style={styles.statLabel}>내 구인글</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.bookmarks}</Text>
+                <Text style={styles.statNumber}>{activity?.bookmarks}</Text>
                 <Text style={styles.statLabel}>북마크</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.matches}</Text>
+                <Text style={styles.statNumber}>{activity?.matches}</Text>
                 <Text style={styles.statLabel}>매칭</Text>
               </View>
-            </View>
+            </View> */}
           </CardContent>
         </Card>
 
         {/* 메뉴 */}
         <Card>
           <CardContent style={{ padding: 0 }}>
-            <TouchableOpacity style={styles.menuItem} onPress={onNavigateToPublicProfile}>
+            <TouchableOpacity 
+            style={styles.menuItem} onPress={onNavigateToPublicProfile}>
               <View style={styles.menuItemLeft}>
                 <Ionicons name="eye" size={20} color="#6b7280" />
                 <Text style={styles.menuText}>공개 프로필 보기</Text>
+                
               </View>
               <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
             </TouchableOpacity>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,10 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import {api} from '@/api/api';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
+import { RecruitStatus } from '@/types/enums';
 
 interface ChatRoomSettingsScreenProps {
   onBack?: () => void;
@@ -22,8 +24,7 @@ interface Member {
   id: string;
   name: string;
   avatar: string;
-  status: 'ready' | 'waiting' | 'matched';
-  isOwner: boolean;
+  isHost: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -231,26 +232,74 @@ const styles = StyleSheet.create({
 });
 
 export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: ChatRoomSettingsScreenProps) {
-  const [roomName, setRoomName] = useState('강남역 근처 깔끔한 원룸 룸메이트');
+  const [newRoomName, setNewRoomName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [selectedMember, setSelectedMember] = useState<ChatRoomMember | null>(null);
   const [showLeaveRoomModal, setShowLeaveRoomModal] = useState(false);
+  const [chatRoom, setChatRoom] = useState<ChatRoomInfo>();
+  const [members, setMembers] = useState<ChatRoomMember[]>([]);
+  const [recruitStatus, setRecruitStatus] = useState<RecruitStatus>(RecruitStatus.Recruiting);
+  const [exitRoom, setExitRoom] = useState(false);
+  const [IsOwnerChat, setIsOwnerChat] = useState(false);
+  const [loginUser, setLoginUser] = useState<AuthMember>();
 
-  // 채팅방 정보 (목 데이터)
-  const chatRoom = {
-    id: 'room_1',
-    status: 'waiting', // waiting, ready, matched
-    isOwner: true, // 현재 사용자가 방장인지
-    members: [
-      { id: 'user1', name: '김민수', avatar: 'KM', status: 'ready', isOwner: true },
-      { id: 'user2', name: '박지은', avatar: 'PJ', status: 'waiting', isOwner: false },
-      { id: 'user3', name: '이준혁', avatar: 'LJ', status: 'waiting', isOwner: false },
-    ] as Member[]
-  };
+  interface ChatRoomMember {
+    id : number;
+    name : string;
+    host : Boolean;
+  }
+
+  interface ChatRoomInfo {
+    id : number;
+    name : string;
+    postId : number;
+    maxMemberCount : number;
+    currentUserCoun : number;
+  }
+
+  interface AuthMember {
+  id : number;
+  name : string;
+  isHost : boolean;
+}
+
+  interface RecruitInfo { // TODO : 구인글 조회 & 수정 api로 상태 수정.. 
+      status : RecruitStatus
+  }
+
+  const getUserInfo = async () => {
+      const res = await api.get(`/auth`);
+      console.log(res);
+      setLoginUser(res.data.data);
+  }
+  
+  const fetchChatRoomInfo = async () => {
+    const res = await api.get(`chat/rooms/my`);
+    setChatRoom(res.data.data);
+  }
+
+  const fetchChatRoomStatusDetails = async (postId: number) => {
+   const res = await api.get(`recruits/${postId}`);
+   setRecruitStatus(res.data?.data?.status);
+ }
+
+  const fetchChatRoomMembers = async (chatRoomId : number) => {
+    const res = await api.get(`chat/rooms/${chatRoomId}/users`);
+    setMembers(res.data.data ?? []);
+    console.log("---------------");
+    console.log(res);
+  }
+  
+  const editChatRoomName = async (newChatRoomName: string, postId : number) => {
+    const res = await api.patch(`chat/rooms/${chatRoom?.id}`, { name: newRoomName, postId : chatRoom?.postId });
+    console.log(res);
+    setNewRoomName(newRoomName);
+  }
 
   const handleSaveRoomName = () => {
     setIsEditingName(false);
+    editChatRoomName(newRoomName, chatRoom?.postId!);
     Alert.alert('알림', '채팅방 이름이 변경되었습니다');
   };
 
@@ -262,6 +311,11 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
     }
   };
 
+  const exitChatRoom = async () => {
+    const res = await api.post(`chat/rooms/exit/${chatRoom?.id}`);
+    setExitRoom(true);
+  }
+
   const handleInviteMember = () => {
     Alert.alert('알림', '초대 링크를 복사했습니다');
   };
@@ -269,9 +323,20 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   const handleLeaveRoom = () => {
     Alert.alert('알림', '채팅방을 나갔습니다');
     setShowLeaveRoomModal(false);
-    onLeaveChatRoom();
-    onBack();
+    onLeaveChatRoom?.();
+    onBack?.();
   };
+
+  useEffect(() => {
+   fetchChatRoomInfo();
+   getUserInfo();
+ }, []);
+
+  useEffect(() => {
+    if (!chatRoom) return;
+    fetchChatRoomMembers(chatRoom?.id);
+    fetchChatRoomStatusDetails(chatRoom?.postId);
+  }, [chatRoom?.id]);
 
   return (
     <View style={styles.container}>
@@ -296,8 +361,9 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                 <>
                   <TextInput
                     style={styles.roomNameInput}
-                    value={roomName}
-                    onChangeText={setRoomName}
+                    value={chatRoom?.name}
+                    placeholder={chatRoom?.name}
+                    onChangeText={setNewRoomName}
                     autoFocus
                   />
                   <Button onPress={handleSaveRoomName} size="sm">
@@ -306,7 +372,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                 </>
               ) : (
                 <>
-                  <Text style={styles.roomNameText}>{roomName}</Text>
+                  <Text style={styles.roomNameText}>{newRoomName}</Text>
                   <Button onPress={() => setIsEditingName(true)} variant="outline" size="sm">
                     <Ionicons name="pencil" size={16} color="#6b7280" />
                   </Button>
@@ -317,8 +383,8 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
           
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>
-              {chatRoom.status === 'waiting' ? '매칭 대기중' : 
-               chatRoom.status === 'ready' ? '매칭 준비완료' : '매칭 완료'}
+              {recruitStatus=== RecruitStatus.Recruiting ? '매칭 대기중' : 
+               recruitStatus === RecruitStatus.RecruitOver ? '매칭 완료' : ''}
             </Text>
           </View>
         </View>
@@ -327,31 +393,23 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.roomNameContainer}>
-              <Text style={styles.cardTitle}>멤버 ({chatRoom.members.length}명)</Text>
+              <Text style={styles.cardTitle}>멤버 ({members?.length}명)</Text>
               <Button onPress={handleInviteMember} variant="outline" size="sm">
                 <Text>👥 초대</Text>
               </Button>
             </View>
           </View>
           
-          {chatRoom.members.map((member) => (
+          {members.map((member) => (
             <View key={member.id} style={styles.memberItem}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{member.avatar}</Text>
+                <Text style={styles.avatarText}>{member.name}</Text>
               </View>
               
               <View style={styles.memberInfo}>
                 <View style={styles.roomNameContainer}>
                   <Text style={styles.memberName}>{member.name}</Text>
-                  {member.status === 'ready' ? (
-                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                  ) : member.status === 'waiting' ? (
-                    <Text style={styles.waitingIcon}>🕐</Text>
-                  ) : (
-                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                  )}
-                  
-                  {member.isOwner && (
+                  {member.host &&  (
                     <View style={styles.ownerBadge}>
                       <Text style={styles.ownerText}>👑 방장</Text>
                     </View>
@@ -359,23 +417,23 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
                 </View>
                 
                 <Text style={styles.memberStatus}>
-                  {member.status === 'ready' ? '준비완료' : 
-                   member.status === 'waiting' ? '대기중' : '매칭완료'}
+                  {recruitStatus === RecruitStatus.Recruiting ? '매칭 대기중' : 
+                   recruitStatus === RecruitStatus.RecruitOver ? '매칭 완료' : ''}
                 </Text>
               </View>
               
-              {chatRoom.isOwner && !member.isOwner && (
+              {member.host === true && (
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => {
                     setSelectedMember(member);
-                    setShowRemoveMemberModal(true);
+                    setShowRemoveMemberModal(false);
                   }}
                 >
                   <Ionicons name="trash" size={16} color="#ef4444" />
                 </TouchableOpacity>
               )}
-            </View>
+            </View> 
           ))}
         </View>
 

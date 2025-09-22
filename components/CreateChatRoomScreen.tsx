@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader } from './ui/card';
+import { api } from '@/api/api';
 
 interface CreateChatRoomScreenProps {
   onBack: () => void;
-  onNext: () => void;
+  onNext?: (name: string) => void; // (선택) 기존 시그니처 유지해도 됨
 }
 
 export default function CreateChatRoomScreen({ onBack, onNext }: CreateChatRoomScreenProps) {
@@ -20,7 +21,7 @@ export default function CreateChatRoomScreen({ onBack, onNext }: CreateChatRoomS
 
   const handleNext = () => {
     if (roomName.trim()) {
-      onNext();
+      onNext?.(roomName);
     }
   };
 

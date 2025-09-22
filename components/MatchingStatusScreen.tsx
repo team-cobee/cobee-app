@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {api} from '@/api/api';
 import {
   View,
   Text,
@@ -8,75 +9,129 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { Double } from 'react-native/Libraries/Types/CodegenTypes';
+import { Gender, Lifestyle, MatchStatus, Personality, Pets, RecruitStatus, Smoking, Snoring, SocialType } from '@/types/enums';
+import { set } from 'react-hook-form';
 
 interface MatchingStatusScreenProps {
   onBack: () => void;
-  onNavigateToJob: (jobId: string) => void;
+  onNavigateToJob: (jobId: number) => void;
+}
+
+interface RecruitResponse{
+  postId : number,
+  title: string,
+  viewed : number,
+  bookmarked : number,
+  createdAt : string,
+  status : RecruitStatus,
+
+  authorId : number,
+  authorName : string,
+  authorGender : Gender,
+  birthdate : string,
+
+  recruitCount : number
+  hasRoom: boolean;  // true : 방있음, false : 함께 찾기
+  rentalCostMin: number;
+  rentalCostMax: number;
+  monthlyCostMin: number;
+  monthlyCostMax: number;
+
+  preferedGender : Gender,
+  preferedMinAge : number,
+  preferedMaxAge : number,
+  preferedLifeStyle?: Lifestyle;
+  preferedPersonality?: Personality
+  preferedSmoking?: Smoking
+  preferedSnoring?: Snoring
+  preferedHasPet?: Pets,
+
+  address : string,
+  latitude : Double,
+  longitude : Double,
+
+  detailDescript : string,
+  additionalDescript : string,
+  imgUrl: string[] | null;
+}
+
+interface authInfo {
+  id : number,
+  name : string,
+  email : string,
+  birthDate: string,
+  gender : Gender
+  socialType: SocialType,
+  isCompleted : boolean,
+  ocrValidation: boolean | null,
+  isHost: true
+}
+
+interface applicantsInfo {
+    userId : number,
+    name : number,
+    gender : string,
+    profileImageUrl : string,
+    info : string,
+    mLifestyle : Lifestyle,
+    mPersonality : Personality,
+    mSmoking : Smoking,
+    mSnoring : Snoring,
+    mPet : Pets
 }
 
 export default function MatchingStatusScreen({ onBack, onNavigateToJob }: MatchingStatusScreenProps) {
   const [activeTab, setActiveTab] = useState('applied');
+  const [myOnWaitPost, setMyOnwaitPost] = useState<RecruitResponse[]>([]);
+  const [myOnMatchingPost, setMyMatchingPost] = useState<RecruitResponse[]>([]);  // accept 받으면 
+  const [myMatchedPost, setMyMatchedPost] = useState<RecruitResponse[]>([]);
+  const [userInfo, setUserInfo] = useState<authInfo | null>(null);
 
-  const appliedJobs = [
-    {
-      id: "1",
-      title: "강남역 근처 깔끔한 원룸",
-      location: "서울 강남구 역삼동",
-      author: "김민수",
-      monthlyRent: 70,
-      status: "지원 중",
-      appliedAt: "2024-08-04",
-      statusColor: "bg-blue-100 text-blue-800"
-    },
-    {
-      id: "2",
-      title: "홍대 투룸 쉐어하실 분",
-      location: "서울 마포구 홍익동",
-      author: "이지영",
-      monthlyRent: 45,
-      status: "모집 완료",
-      appliedAt: "2024-08-03",
-      statusColor: "bg-gray-100 text-gray-800"
-    }
-  ];
+  useEffect(() => {
+      let cancelled = false;
+  
+      const load = async () => {
+   
+        try {
+          const myOnWait = await api.get(`/apply/my/onWait`);  // 지원한 구인글 
+          const myOnMatching = await api.get(`/apply/my/matching`); // 초대받은 구인글 
+          const myMatched = await api.get(`/apply/my/matched`);  // 매칭완료 구인글 
+          const userRes = await api.get(`/auth`);
 
-  const matchedJobs = [
-    {
-      id: "3",
-      title: "신촌 원룸 같이 살 친구 찾아요",
-      location: "서울 서대문구 신촌동",
-      author: "박준호",
-      monthlyRent: 55,
-      status: "매칭 완료",
-      matchedAt: "2024-08-02",
-      statusColor: "bg-green-100 text-green-800",
-      participants: ["나", "박준호", "최서연"]
-    }
-  ];
+          if (cancelled) return;
+        
+          setMyOnwaitPost(myOnWait.data?.data ?? null);
+          setMyMatchingPost(myOnMatching.data?.data ?? null);
+          setMyMatchedPost(myMatched.data?.data ?? null);
+          setUserInfo(userRes.data?.data ?? null);
+          
+          console.log(myOnWait.data);
+          console.log(myOnMatching.data);
+          console.log(myMatched.data);
+          console.log(userRes.data);
 
-  const invitedJobs = [
-    {
-      id: "4",
-      title: "강서구 투룸 룸메이트 모집",
-      location: "서울 강서구 화곡동",
-      author: "정민지",
-      monthlyRent: 60,
-      status: "매칭 중",
-      invitedAt: "2024-08-04",
-      statusColor: "bg-yellow-100 text-yellow-800"
-    }
-  ];
+        } catch (e) {
+          console.error(e);
+        }
+      };
+  
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }, []);
 
   const tabs = [
-    { id: 'applied', label: '지원한 구인글', count: appliedJobs.length },
-    { id: 'matched', label: '매칭 완료', count: matchedJobs.length },
-    { id: 'invited', label: '초대받은 구인글', count: invitedJobs.length }
+    { id: 'applied', label: '지원한 구인글', count: myOnWaitPost?.length },
+    { id: 'matched', label: '매칭 완료', count: myOnMatchingPost?.length },
+    { id: 'invited', label: '초대받은 구인글', count: myMatchedPost?.length }
   ];
 
   const renderJobCard = (job: any, showParticipants = false) => (
     <TouchableOpacity 
-      key={job.id}
-      onPress={() => onNavigateToJob(job.id)}
+      key={job.postId}
+      onPress={() => onNavigateToJob(job.postId)}
       activeOpacity={0.7}
     >
       <Card>
@@ -86,10 +141,10 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
               <Text style={{ fontWeight: '500', fontSize: 14, marginBottom: 4 }}>{job.title}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
                 <Text style={{ fontSize: 12, color: '#6b7280' }}>📍</Text>
-                <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.location}</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>{job.address}</Text>
               </View>
               <Text style={{ fontSize: 12, color: '#6b7280' }}>
-                작성자: {job.author} • 월세 {job.monthlyRent}만원
+                작성자: {job.authorName} • 월세 {job.monthlyCostMin}만원
               </Text>
             </View>
             <Badge>
@@ -111,13 +166,13 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={{ fontSize: 12, color: '#6b7280' }}>🕐</Text>
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>
+              {/* <Text style={{ fontSize: 12, color: '#6b7280' }}>
                 {job.appliedAt && `지원일: ${job.appliedAt}`}
                 {job.matchedAt && `매칭일: ${job.matchedAt}`}
                 {job.invitedAt && `초대일: ${job.invitedAt}`}
-              </Text>
+              </Text> */}
             </View>
-            {job.status === '매칭 완료' && (
+            {job.status === MatchStatus.Matched && (
               <Text style={{ color: '#22c55e', fontSize: 16 }}>✓</Text>
             )}
           </View>
@@ -134,8 +189,8 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
             <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
               내가 지원한 구인글 목록을 보여줍니다
             </Text>
-            {appliedJobs.length > 0 ? (
-              appliedJobs.map(job => renderJobCard(job))
+            {myOnWaitPost.length > 0 ? (
+              myOnWaitPost.map(job => renderJobCard(job))
             ) : (
               <View style={{ alignItems: 'center', paddingVertical: 48 }}>
                 <View style={{
@@ -162,8 +217,8 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
             <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
               매칭이 완료된 구인글입니다
             </Text>
-            {matchedJobs.length > 0 ? (
-              matchedJobs.map(job => renderJobCard(job, true))
+            {myMatchedPost.length > 0 ? (
+              myMatchedPost.map(job => renderJobCard(job, true))
             ) : (
               <View style={{ alignItems: 'center', paddingVertical: 48 }}>
                 <View style={{
@@ -190,8 +245,8 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
             <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
               구인글 채팅방에 초대받은 경우의 목록입니다
             </Text>
-            {invitedJobs.length > 0 ? (
-              invitedJobs.map(job => renderJobCard(job))
+            {myOnMatchingPost.length > 0 ? (
+              myOnMatchingPost.map(job => renderJobCard(job))
             ) : (
               <View style={{ alignItems: 'center', paddingVertical: 48 }}>
                 <View style={{

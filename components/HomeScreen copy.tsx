@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets, SocialType } from '@/types/enums';
-import { Dimensions } from 'react-native';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import {
   View,
   Text,
@@ -15,13 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/api/api';
 
 interface HomeScreenProps {
-  onNavigateToJob?: (jobId: number) => void;
+  onNavigateToJob?: (jobId: string) => void;
   onNavigateToCreateJob?: () => void;
   onNavigateToBookmarks?: () => void;
 }
 
 interface RecruitResponse{
-  postId : number,
+  id : number,
   title: string;
   authorName : string,
   createdBefore : number, // n 시간전
@@ -41,32 +39,19 @@ interface RecruitResponse{
   authorGender : Gender
 }
 
-interface user { // api 명세에 맞게 수정
-    id : number;
-    name : string;
-    email : string;
-    birthDate : string;
-    gender : Gender;
-    socialType : SocialType;
-    isCompleted : Boolean;
-    ocrValidation : Boolean;
-    isHost : Boolean;
-};
-
 export default function HomeScreen({
   onNavigateToJob,
   onNavigateToCreateJob,
   onNavigateToBookmarks,
 }: HomeScreenProps) {
   const [bookmarkedJobs, setBookmarkedJobs] = useState<Set<string>>(new Set());
-  const [recruits, setRecruits] = useState<RecruitResponse[] | null>([]);
-  const [userInfo, setUserInfo] = useState<user | null>(null);
+  const [recruits, setRecruits] = useState<RecruitResponse[]>([]);
 
   useEffect(() => {
     const fetchRecruits = async () => {
       try {
         const res = await api.get('/recruits'); // @GetMapping("")
-        setRecruits(res.data?.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
+        setRecruits(res.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
       } catch (error) {
         console.error(error);
         Alert.alert('에러', '구인글을 불러오지 못했습니다');
@@ -76,26 +61,6 @@ export default function HomeScreen({
     fetchRecruits();
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-  
-    const fetchMyInfo = async () => {
-      try {
-        const res = await api.get('/auth'); 
-        if (!cancelled) setUserInfo(res.data?.data);
-      } catch (error) {
-        console.error(error);
-        Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
-      }
-    };
-    fetchMyInfo();          
-  
-    return () => {        
-      cancelled = true;
-    };
-    }, []); 
-
-  
   const toggleBookmark = (jobId: string) => {
     const newBookmarked = new Set(bookmarkedJobs);
     if (newBookmarked.has(jobId)) {
@@ -107,6 +72,23 @@ export default function HomeScreen({
     }
     setBookmarkedJobs(newBookmarked);
   };
+
+  const recommendedJobs = [
+    {
+      id: '1',
+      title: '중구 오피스텔 깔끔한 공간',
+      location: '중구 명동',
+      monthlyRent: 55,
+      tags: ['오피스텔', '중간형', '비흡연', '반려동물 없음'],
+    },
+    {
+      id: '2',
+      title: '신촌 투룸 쉐어하실 분',
+      location: '서대문구 신촌동',
+      monthlyRent: 60,
+      tags: ['투룸', '저녁형', '비흡연'],
+    },
+  ];
 
   const newsList = [
     {
@@ -137,7 +119,7 @@ export default function HomeScreen({
       </View>
         
         <View style={{ flex: 1 }}>
-          <Text style={styles.welcomeTitle}>{userInfo?.name}님,</Text>
+          <Text style={styles.welcomeTitle}>이주연님,</Text>
           <Text style={styles.welcomeSubtitle}>
             오늘은 어떤 룸메이트를 찾으시나요?
           </Text>
@@ -163,67 +145,60 @@ export default function HomeScreen({
       </View>
 
       {/* 추천 구인글 */}
-      {/* 추천 구인글 */}
-<View style={styles.section}>
-  <Text style={styles.sectionTitle}>추천 구인글</Text>
+      <ScrollView style={styles.container}>
+      <Text style={styles.sectionTitle}>추천 구인글</Text>
 
-  <ScrollView
-    horizontal
-    pagingEnabled       // ← 한 번에 하나씩만 보이게
-    showsHorizontalScrollIndicator={false}
-    decelerationRate="fast"
-    snapToAlignment="center" // 카드가 중앙에 딱 맞게
-  >
-    {recruits?.map((job, idx) => {
-  const key = `recruit-${job.postId ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
-  return (
-    <TouchableOpacity
-      key={key}
-      style={styles.jobCard}
-      onPress={() => onNavigateToJob?.(job.postId)} 
-    >
-      <View style={styles.jobCardContent}>
-        <Text style={styles.jobTitle}>{job.title}</Text>
-        <Text style={styles.jobLocation}>{job.address}</Text>
-        <Text style={styles.jobPrice}>
-          월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
-        </Text>
+      {recruits.map((job) => (
+        <TouchableOpacity
+          key={job.id}
+          style={styles.jobCard}
+          onPress={() => console.log('구인글 상세로 이동', job.id)}
+        >
+          <View style={styles.jobCardContent}>
+            {/* 제목 */}
+            <Text style={styles.jobTitle}>{job.title}</Text>
 
-        <View style={styles.tagsContainer}>
-          {job.isSmoking && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
-            </View>
-          )}
-          {job.isPetsAllowed && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
-            </View>
-          )}
-          {job.personality && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>성격: {job.personality}</Text>
-            </View>
-          )}
-          {job.lifestyle && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-})}
-  </ScrollView>
-</View>
+            {/* 주소 */}
+            <Text style={styles.jobLocation}>{job.address}</Text>
 
+            {/* 월세 */}
+            <Text style={styles.jobPrice}>
+              월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
+            </Text>
+
+            {/* 태그 */}
+            <View style={styles.tagsContainer}>
+              {job.isSmoking && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
+                </View>
+              )}
+              {job.isPetsAllowed && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
+                </View>
+              )}
+              {job.personality && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>성격: {job.personality}</Text>
+                </View>
+              )}
+              {job.lifestyle && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
 
       {/* 최신 소식 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>최근 소식</Text>
-        {newsList.map((news, idx) => (
-          <View key={`news-${news.id}-${idx}`} style={styles.newsItem}>
+        {newsList.map((news) => (
+          <View key={news.id} style={styles.newsItem}>
             <Text style={styles.newsText}>{news.title}</Text>
             <Text style={styles.newsDate}>{news.date}</Text>
           </View>
@@ -288,8 +263,8 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 24, paddingVertical: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   jobCard: {
-    width: SCREEN_WIDTH - 60,   // 양 옆 여백 주면서 화면에 하나씩만 보이도록
-    marginHorizontal: 30,
+    width: 220,
+    marginRight: 12,
     backgroundColor: '#fff',
     borderRadius: 8,
     elevation: 2,
