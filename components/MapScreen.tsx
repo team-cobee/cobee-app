@@ -18,28 +18,17 @@ import { Slider } from "./ui/slider";
 import { Double, Float } from "react-native/Libraries/Types/CodegenTypes";
 import { Gender, Lifestyle, Personality, Pets, RecruitStatus, Smoking, Snoring } from "@/types/enums";
 
-// ===== Types =====
-export type LocationRequestDto = {
-  latitude: Double;
-  longitude: Double;
-  distance: number; // meters
-};
 
-export type NearbyPlaceDto = {
-  name: string;
-  latitude: Float;
-  longitude: Float;
-  address: string;
-};
-
-export type LocationResponseDto = {
-  id: number;
-  latitude: Double;
-  longitude: Double;
-  address: string;
-  distanceMeter?: number;
-  createdAt: string; // LocalDateTime은 문자열로 받으면 됨
-};
+interface filterDto {
+  latitude? : Double;
+  longitude? : Double;
+  radius? : Double;
+  recruitCount? : number;
+  rentCostMin? : number;
+  rentCostMax? : number;
+  monthlyCostMin? : number;
+ monthlyCostMax? : number
+}
 
 interface RecruitResponse {
   postId: number;
@@ -78,48 +67,23 @@ interface RecruitResponse {
   imgUrl: string[] | null;
 }
 
-
 // ===== Helpers / API =====
-const toQuery = (params: Record<string, any>) =>
-  Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null && v !== "")
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-    .join("&");
+const toQuery = (params: Record<string, any>) => {
+  const qp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    if (Array.isArray(v)) {
+      v.forEach((item) => qp.append(k, String(item)));
+    } else {
+      qp.append(k, String(v));
+    }
+  });
+  return qp.toString(); // "" 또는 "a=1&b=2"
+}
 
-const fetchNearbyFromGoogle = async (dto: LocationRequestDto) => {
-  const { data } = await api.post<{
-    message: string;
-    code: string;
-    data: NearbyPlaceDto[];
-  }>("/locations/search/google/nearby", dto);
-  return data.data;
-};
-
-const fetchNearbyLocations = async (dto: LocationRequestDto) => {
-  const { data } = await api.post<{
-    message: string;
-    code: string;
-    data: LocationResponseDto[];
-  }>("/locations/search/nearby/locations", dto);
-  return data.data;
-};
-
-const fetchRecruitPosts = async (params: {
-  latitude?: Float;
-  longitude?: Float;
-  radius?: number; // meters
-  recruitCount?: number;
-  rentCostMin?: number; // 보증금(만원)
-  rentCostMax?: number;
-  monthlyCostMin?: number; // 월세(만원)
-  monthlyCostMax?: number;
-}) => {
+const fetchRecruitPosts = async (params: filterDto) => {
   const qs = toQuery(params);
-  const data = await api.get<{
-    message: string;
-    code: string;
-    data: RecruitResponse[];
-  }>(`/posts/filter${qs ? `?${qs}` : ""}`);
+  const data = await api.get(`/posts/filter${qs ? `?${qs}` : ""}`);
   console.log(data.data);
   return data.data;  // 현재 내 위치를 기준으로부터!! 위도 경도는 필수적으로 보내줘야함. 몇 km이내로 있는지 구인글을 보여주는것.  
 };
@@ -157,28 +121,21 @@ export default function MapScreen({
   });
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [centerReady, setCenterReady] = useState(false); // 초기 위치 준비 플래그
+  const [posts, setPosts] = useState<RecruitResponse[]>([]);
   const initialCenterRef = useRef<{ lat: Float; lng: Float } | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      const ok = status === "granted";
-      setHasLocationPermission(ok);
-      if (ok) {
-        const loc = await Location.getCurrentPositionAsync({});
-        const lat = loc.coords.latitude;
-        const lng = loc.coords.longitude;
-        initialCenterRef.current = { lat, lng };
-        setRegion((r) => ({ ...r, latitude: lat, longitude: lng }));
-        setCenterReady(true); // 이후부터만 fetch
-      } else {
-        // 권한 거부 시에도 기본 좌표로 fetch 가능하게
-        initialCenterRef.current = { lat: region.latitude, lng: region.longitude };
-        setCenterReady(true);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      const fetchRecruits = async () => {
+        try {
+          const res = await api.get('/recruits'); // @GetMapping("")
+          setPosts(res.data?.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
+          console.log(res.data.data);
+        } catch (error) {
+          console.error(error);
+        }
+      };
+      fetchRecruits();
+    }, []);
 
   // ===== 리스트 / 시트 =====
   const [sheetState, setSheetState] = useState<"collapsed" | "partial" | "expanded">(
@@ -232,9 +189,6 @@ export default function MapScreen({
   const [openPeople, setOpenPeople] = useState(false);
 
   // ===== 서버 데이터 =====
-  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlaceDto[]>([]);
-  const [nearbyLocations, setNearbyLocations] = useState<LocationResponseDto[]>([]);
-  const [posts, setPosts] = useState<RecruitResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -261,37 +215,7 @@ export default function MapScreen({
     };
   };
 
-  const loadAll = useCallback(async () => {
-    if (!centerReady || !initialCenterRef.current) return;
-
-    setLoading(true);
-    setErrorMsg(null);
-
-    const center = initialCenterRef.current;
-    const dto: LocationRequestDto = {
-      latitude: center.lat,
-      longitude: center.lng,
-      distance: Math.round(radiusKm * 1000), // 주변 검색 반경
-    };
-
-    const [gRes, lRes, pRes] = await Promise.all([
-      runSafe(() => fetchNearbyFromGoogle(dto)),
-      runSafe(() => fetchNearbyLocations(dto)),
-      runSafe(() => fetchRecruitPosts(buildFilterParams())),
-    ]);
-
-    if (gRes) setNearbyPlaces(gRes);
-    if (lRes) setNearbyLocations(lRes);
-    if (pRes) setPosts(pRes.data);
-
-    setLoading(false);
-  }, [centerReady, radiusKm, rentRange, depositRange, peopleCount]);
-
   // 🔹 초기 위치 확보 후 + 버튼(필터) 값이 바뀔 때만 호출
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
   // ===== 클라 보조 필터(검색어만) =====
   const filteredJobs = posts.filter((job) => {
     if (
@@ -659,19 +583,19 @@ export default function MapScreen({
         )}
 
         {/* 마커들 */}
-        {nearbyPlaces.map((p, idx) => (
+        {posts.map((p, idx) => (
           <Marker
-            key={`g-${idx}-${p.name}`}
+            key={`g-${idx}-${p.postId}`}
             coordinate={{ latitude: p.latitude, longitude: p.longitude }}
-            title={p.name}
+            title={p.title}
             description={p.address}
             pinColor={"#3B82F6"}
             onPress={() => setSheetState("partial")}
           />
         ))}
-        {nearbyLocations.map((l) => (
+        {posts.map((l) => (
           <Marker
-            key={`l-${l.id}`}
+            key={`l-${l.postId}`}
             coordinate={{ latitude: l.latitude, longitude: l.longitude }}
             title={l.address}
             pinColor={"#10B981"}
@@ -764,7 +688,7 @@ export default function MapScreen({
         onReset={() => setRadiusKm(2)}
         onConfirm={() => {
           setOpenRadius(false);
-          loadAll();
+          //loadAll();
         }}
       >
         <Slider value={[radiusKm]} onValueChange={(v) => setRadiusKm(Number(v[0]))} min={0} max={10} step={0.1} />
@@ -783,7 +707,7 @@ export default function MapScreen({
         onReset={() => setRentRange([45, 75])}
         onConfirm={() => {
           setOpenRent(false);
-          loadAll();
+          //loadAll();
         }}
       >
         <Slider value={rentRange as unknown as number[]} onValueChange={(v) => setRentRange([v[0], v[1]] as any)} min={10} max={200} step={1} />
@@ -802,10 +726,11 @@ export default function MapScreen({
         onReset={() => setDepositRange([1000, 3500])}
         onConfirm={() => {
           setOpenDeposit(false);
-          loadAll();
+          //loadAll();
         }}
       >
         <Slider
+          
           value={depositRange as unknown as number[]}
           onValueChange={(v) => setDepositRange([v[0], v[1]] as any)}
           min={0}
@@ -827,7 +752,7 @@ export default function MapScreen({
         onReset={() => setPeopleCount(4)}
         onConfirm={() => {
           setOpenPeople(false);
-          loadAll();
+          //loadAll();
         }}
       >
         <Slider value={[peopleCount]} onValueChange={(v) => setPeopleCount(Math.round(Number(v[0])))} min={2} max={10} step={1} />
