@@ -377,11 +377,11 @@ const handleSendMessage = () => {
       {/* 채팅 메시지 영역 */}
       <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ gap: 16, paddingBottom: 120 }}>
         
-        {message.map((msg) => {
+        {message.map((msg, index) => {
           const isOwn = msg.sender === loginUser?.id;
 
-        return (
-          <View key={msg.id}>
+          return (
+            <View key={msg.id ? `${msg.id}-${index}` : `msg-${index}`}>
             
             {/* 시스템 문자{ === true && (
               <View style={{ alignItems: 'center' }}>

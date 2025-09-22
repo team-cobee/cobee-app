@@ -15,6 +15,7 @@ import { Card, CardContent } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Gender, SocialType } from '@/types/enums';
+import { getAccessToken } from '@/api/tokenStorage';
 
 interface ProfileScreenProps {
   onLogout?: () => void;
@@ -195,13 +196,46 @@ export default function ProfileScreen({
 
   const confirmLogout = () => {
     setShowLogoutDialog(false);
-    //onLogout();
+    logoutMember();
   };
 
   const confirmWithdraw = () => {
     setShowWithdrawDialog(false);
-    //onWithdraw();
+    withDrawMember();
   };
+
+  // 회원 탈퇴 함수
+  const withDrawMember = async () => {
+    try {
+      const res = await api.delete('/auth/withdraw', {
+        headers: {
+          Authorization: `Bearer ${getAccessToken}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('회원 탈퇴 성공:', res.data);
+      // 성공 후 처리 (예: 로그아웃, 메인 화면 이동 등)
+    } catch (error) {
+      console.error('회원 탈퇴 실패:', error);
+      // 에러 처리
+    }
+  };
+
+  const logoutMember = async () => {
+    try {
+      const res = api.post('/auth/logout', {
+        headers: {
+          Authorization: `Bearer ${getAccessToken}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('회원 로그아웃 완료');
+    } catch {
+      console.log("회원 로그이웃 실패");
+    }
+  }
+
 
   interface user { // api 명세에 맞게 수정
     id : number;
@@ -229,21 +263,6 @@ export default function ProfileScreen({
   }
   const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
 
-
-
-  // useEffect( () => {
-  //   const fetchMyInfo = async () => {
-  //         try {
-  //           const res = await api.get('/auth');  // 백엔드 넘겨줄때 memberId가 아니라 헤더로 넘겨주기로 수정
-  //           setUserInfo(res.data.data);
-  //         } catch (error) {
-  //           console.error(error);
-  //           Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
-  //         }
-  //       }
-  //   }
-  // ), []; 
-
   useEffect(() => {
   let cancelled = false;
 
@@ -263,7 +282,7 @@ export default function ProfileScreen({
   };
   }, []);                    // ← dep array는 useEffect 호출 안쪽의 두 번째 인자
 
-  // activity 호출 api 
+  // 통계 호출 api 
   // useEffect( () => {
   //   const fetchMyActivity = async () => {
   //         try {
@@ -298,9 +317,9 @@ export default function ProfileScreen({
         <Card>
           <CardContent style={{ padding: 24 }}>
             <View style={styles.profileSection}>
-              {/* <Avatar style={{ width: 64, height: 64 }}>
-                <AvatarFallback>{user.name}</AvatarFallback>
-              </Avatar> */}
+              <Avatar style={{ width: 64, height: 64 }}>
+                <AvatarFallback>{userInfo.name}</AvatarFallback>
+              </Avatar>
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{userInfo?.name}</Text>
                 <Text style={styles.userEmail}>{userInfo?.email}</Text>
@@ -308,14 +327,14 @@ export default function ProfileScreen({
                 <Badge variant="default" style={styles.verificationBadge}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <Ionicons name="checkmark-circle" size={14} color="#10b981" />
-                    {/* <Text style={{ color: '#10b981', fontSize: 12 }}>{userInfo?.verificationStatus}</Text> */}
+                    <Text style={{ color: '#10b981', fontSize: 12 }}>{userInfo?.verificationStatus}</Text>
                   </View>
                 </Badge>
               </View>
             </View>
 
-            {/* 통계 */}
-            <View style={styles.statsContainer}>
+            {/* 통계 - 나중에 추가*/}
+            {/* <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{activity?.myPosts}</Text>
                 <Text style={styles.statLabel}>내 구인글</Text>
@@ -328,7 +347,7 @@ export default function ProfileScreen({
                 <Text style={styles.statNumber}>{activity?.matches}</Text>
                 <Text style={styles.statLabel}>매칭</Text>
               </View>
-            </View>
+            </View> */}
           </CardContent>
         </Card>
 

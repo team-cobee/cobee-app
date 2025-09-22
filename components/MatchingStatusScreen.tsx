@@ -68,6 +68,19 @@ interface authInfo {
   isHost: true
 }
 
+interface applicantsInfo {
+    userId : number,
+    name : number,
+    gender : string,
+    profileImageUrl : string,
+    info : string,
+    mLifestyle : Lifestyle,
+    mPersonality : Personality,
+    mSmoking : Smoking,
+    mSnoring : Snoring,
+    mPet : Pets
+}
+
 export default function MatchingStatusScreen({ onBack, onNavigateToJob }: MatchingStatusScreenProps) {
   const [activeTab, setActiveTab] = useState('applied');
   const [myOnWaitPost, setMyOnwaitPost] = useState<RecruitResponse[]>([]);
