@@ -27,6 +27,7 @@ interface ProfileScreenProps {
   onNavigateToMatching?: () => void;
   onNavigateToBookmarks?: () => void;
   onNavigateToPublicProfile?: () => void;
+  onNavigateToLogin? : () => void;
 }
 
 const styles = StyleSheet.create({
@@ -179,7 +180,8 @@ export default function ProfileScreen({
   onNavigateToBookmarks, 
   onNavigateToMatching, 
   onNavigateToMyPosts, 
-  onNavigateToPublicProfile 
+  onNavigateToPublicProfile,
+  
 }: ProfileScreenProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
@@ -197,11 +199,13 @@ export default function ProfileScreen({
   const confirmLogout = () => {
     setShowLogoutDialog(false);
     logoutMember();
+    onLogout?.();
   };
 
   const confirmWithdraw = () => {
     setShowWithdrawDialog(false);
     withDrawMember();
+    onLogout?.();
   };
 
   // 회원 탈퇴 함수
@@ -256,11 +260,11 @@ export default function ProfileScreen({
   };
 
   function getAge(birthdate: string): number {
-  const birthYear = new Date(birthdate).getFullYear();
-  const currentYear = new Date().getFullYear();
-  
-  return currentYear - birthYear + 1;
+    const birthYear = parseInt(birthdate.substring(0, 4), 10);
+    const currentYear = new Date().getFullYear();
+    return currentYear - birthYear + 1;
   }
+
   const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
 
   useEffect(() => {
@@ -270,6 +274,7 @@ export default function ProfileScreen({
     try {
       const res = await api.get('/auth'); 
       if (!cancelled) setUserInfo(res.data?.data);
+      console.log(res);
     } catch (error) {
       console.error(error);
       Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
@@ -318,7 +323,7 @@ export default function ProfileScreen({
           <CardContent style={{ padding: 24 }}>
             <View style={styles.profileSection}>
               <Avatar style={{ width: 64, height: 64 }}>
-                <AvatarFallback>{userInfo.name}</AvatarFallback>
+                <AvatarFallback>{userInfo?.name}</AvatarFallback>
               </Avatar>
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{userInfo?.name}</Text>

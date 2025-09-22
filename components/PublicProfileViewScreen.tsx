@@ -69,10 +69,10 @@ useEffect(() => {
 if (loading || !publicProfile || !ocr) {
   return <View style={{flex:1, backgroundColor:'red'}}>{/* 로딩/스켈레톤 */}</View>;
 }
-function getAge(birthdate: string): number { 
-  const birthYear = new Date(birthdate).getFullYear();
+
+function getAge(birthdate: string): number {
+  const birthYear = parseInt(birthdate.substring(0, 4), 10);
   const currentYear = new Date().getFullYear();
-  
   return currentYear - birthYear + 1;
 }
 const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
@@ -124,21 +124,17 @@ const tPersonality = (v?: Personality) =>
   '상관없음';
 
 const tSmoking = (v?: Smoking) =>
-  v === Smoking.Smoke ? '흡연' :
-  v === Smoking.NotSmoke ? '비흡연' :
-  v === Smoking.Impossible ? '흡연 불가' :
-  '상관없음';
+  v === Smoking.None ? '흡연' :
+  v === Smoking.Impossible ? '비흡연' : '상관없음'
 
 const tSnoring = (v?: Snoring) =>
-  v === Snoring.Snore ? '코골이 있음' :
-  v === Snoring.NoSnore ? '코골이 없음' :
-  v === Snoring.Impossible ? '코골이 불가' :
+  v === Snoring.None ? '코골이 있음' :
+  v === Snoring.Impossible ? '코골이 없음' :
   '상관없음';
 
 const tPets = (v?: Pets) =>
-  v === Pets.Have ? '있음' :
-  v === Pets.NotHave ? '없음' :
-  v === Pets.Possible ? '가능' :
+  v === Pets.Possible ? '있음' :
+  v === Pets.None ? '없음' :
   v === Pets.Impossible ? '불가능' :
   '상관없음';
 
@@ -297,7 +293,7 @@ const lifestyleRows: { key: LifestyleKey; label: string; value: string }[] = [
                     fontSize: 12,
                     color: ocr.ocrVerified? '#ffffff' : '#6b7280'
                   }}>
-                    {ocr.ocrVerified ? '완료' : '미완료'}
+                    {userInfo?.ocrValidation ? '완료' : '미완료'}
                   </Text>
                 </View>
               </View>

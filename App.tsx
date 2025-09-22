@@ -255,6 +255,7 @@ export default function App() {
               onNavigateToJob={(jobId: number) => navigate('JobPostingDetail', { jobId })}
               onNavigateToCreateJob={() => navigate('CreateJobPosting')}
               onNavigateToBookmarks={() => navigate('BookmarkList')}
+              
             />
           );
         case 'map':

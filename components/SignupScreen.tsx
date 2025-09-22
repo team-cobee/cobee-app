@@ -1567,10 +1567,10 @@ interface form {
   ageMax: number| null,
   lifestyle: Lifestyle | null,
   personality: Personality| null,
-  smokingPreference: boolean,
-  snoringPreference: boolean,
+  smokingPreference: boolean |null,
+  snoringPreference: boolean |null,
   maxRoommates: number| null,
-  petPreference: boolean
+  petPreference: boolean |null,
   
   // 공개 프로필
   myLifestyle: Lifestyle| null,
@@ -1623,10 +1623,10 @@ const INITIAL_FORM: form = {
   ageMax: null,
   lifestyle: null,
   personality: null,
-  smokingPreference: false,
-  snoringPreference: false,
+  smokingPreference: null,
+  snoringPreference: null,
   maxRoommates: null,
-  petPreference: false,
+  petPreference: null,
 
   myLifestyle: null,
   myPersonality: null,
