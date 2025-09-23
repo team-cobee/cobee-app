@@ -8,6 +8,8 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import {api} from '../api/api';
+import { getAccessToken} from '@/api/tokenStorage';
 import { Gender, MatchStatus } from '@/types/enums';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
@@ -22,56 +24,21 @@ interface ApplicantsScreenProps {
   onNavigateToChat?: (userId: number) => void;
 }
 
-
-/** 테스트/API 호출용 동적 호출 
- * true  = 더미 데이터 사용(실제 API 호출 X)
- * false = 실제 API 호출 사용(아래 주석 해제 필요)
- */
-const USE_MOCK = true;
-
-// 시뮬레이터 환경에 맞게 바꾸기 
-const API_BASE_URL = 'http://localhost:8080';
-
 /** 백엔드 응답 스키마 */
 interface Applicant {
-  id: number;
-  name : string;
-  age: string;
-  gender: Gender;
+  memberName : string;
+  birthDate: string;
+  gender: string;
   status: MatchStatus;
+  applyId : number
 }
 
-/** 테스트 더미 데이터 */
-const MOCK_APPLICANTS: Applicant[] = [
-  {
-    id: 1,
-    name: '이주연',
-    age: '20대 중반',
-    gender: Gender.Female,
-    status: MatchStatus.OnWait
-  },
-  {
-    id: 2,
-    name: '장희주',
-    age: '20대 초반',
-    gender: Gender.Female,
-    status: MatchStatus.OnWait
-  },
-  {
-    id: 3,
-    name: '강승윤',
-    age: '20대 초반',
-    gender: Gender.Male,
-    status: MatchStatus.Matching
-  },
-  {
-    id: 4,
-    name: '최민수',
-    age: '20대 중반',
-    gender: Gender.Male,
-    status: MatchStatus.Rejected
-  },
-];
+interface ApplyResponse {
+    id : number;
+    appliedPostId : number;
+    appliedMemberId : number;
+    isMatched : MatchStatus;
+}
 
 type FilterKey = 'all' | MatchStatus;
 const filters: { key: FilterKey; label: string }[] = [
@@ -91,6 +58,16 @@ export default function ApplicantsScreen({
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState<string | null> (null)
+
+  const getPostTitle = async() => {
+    const token = await getAccessToken().catch(() => null);  
+    const res = await api.get(`/recruits/${postId}`,{
+      headers: token ? { Authorization: `Bearer ${token}` } : {},       
+    }
+  )
+  setTitle(res.data.data.title);
+};
 
   const getStatusText = (status: MatchStatus) => {
     switch (status) {
@@ -116,69 +93,64 @@ export default function ApplicantsScreen({
     }
   };
 
-  const filteredApplicants = useMemo(
-  () => applicants.filter(a => selectedFilter === 'all' || a.status === selectedFilter),
-  [applicants, selectedFilter]
-);
+const filteredApplicants = useMemo(() => {
+  const list = Array.isArray(applicants) ? applicants : [];   // ✅ 안전 보정
+  return selectedFilter === 'all'
+    ? list
+    : list.filter(a => a.status === selectedFilter);
+}, [applicants, selectedFilter]);
 
   const counts = useMemo(() => {
-  const by = (s: MatchStatus) => applicants.filter(a => a.status === s).length;
+    const list = Array.isArray(applicants) ? applicants : [];   //  안전 보정을 위한 코드 NPE 주의 
+    const by = (s: MatchStatus) => list.filter(a => a.status === s).length;
 
-  return {
-    total: applicants.length,
-    // 검토중 = ON_WAIT
-    pending: by(MatchStatus.OnWait),
-    // 승인됨 = MATCHING
-    accepted: by(MatchStatus.Matching),
-    // 완전 매칭 
-    matched: by(MatchStatus.Matched),
-    // 거절됨 = REJECTED
-    rejected: by(MatchStatus.Rejected),
-  };
-}, [applicants]);
+    return {
+      total: list.length,
+      pending: by(MatchStatus.OnWait),
+      accepted: by(MatchStatus.Matching),
+      matched: by(MatchStatus.Matched),
+      rejected: by(MatchStatus.Rejected),
+    };
+  }, [applicants]);
 
 
-  /* 데이터 로더 */
-  const fetchApplicants = useCallback(async () => {
-    if (!USE_MOCK && (postId === null || postId === undefined)) {
-    setApplicants([]);
-    return;
-  }
 
+    /* 데이터 로더 */
+    const fetchApplicants = useCallback(async () => {
+    if (!postId) {                      // postId 없으면 빈 목록 처리
+      setApplicants([]);
+      return;
+    }
     setLoading(true);
     setError(null);
-
     try {
-      if (USE_MOCK) {
-        await new Promise((r) => setTimeout(r, 700)); // 0.7초 대기
-        setApplicants(MOCK_APPLICANTS);
-      } else {
-        // 실제 API 호출 모드 - 나중에 다시 수정해야함 
-        /*
-        const res = await fetch(`${API_BASE_URL}/apply/${postId}/all`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      const token = await getAccessToken().catch(() => null);  
+      const res = await api.get(`/apply/${postId}/all`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}, 
+      });
 
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(`응답 오류(${res.status}) ${text}`);
-        }
-        setApplicants(normalized);
-        */
-      }
+      // 응답을 방어적으로 배열 추출
+      const payload = res?.data?.data ?? res?.data ?? [];
+      const list =
+        Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.content)
+          ? payload.content
+          : [];
+
+      setApplicants(list as Applicant[]);
     } catch (e: any) {
       setError(e?.message ?? '목록을 불러오는 중 오류가 발생했습니다.');
-      setApplicants([]);
+      setApplicants([]);                // ✅ 실패 시에도 배열로 유지
     } finally {
       setLoading(false);
     }
   }, [postId]);
 
+
   useEffect(() => {
     fetchApplicants();
+    getPostTitle();
   }, [fetchApplicants]);
 
   const onRefresh = useCallback(async () => {
@@ -190,13 +162,34 @@ export default function ApplicantsScreen({
     }
   }, [fetchApplicants]);
 
+  const acceptApplicant = async (id: number) => {
+  try {
+    const token = await getAccessToken().catch(() => null);
+
+    const res = await api.post(
+      `/apply/accept/${id}`,
+      postId, 
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      }
+    );
+    console.log(res.data.data);
+    return res.data.data; // 필요 시 res.data.data 반환
+  } catch (e: any) {
+    // 에러 핸들링(선택)
+    throw new Error(e?.response?.data?.message ?? e?.message ?? '승인 요청 실패');
+  }
+  };
+
   // 로컬 상태 변경(승인/거절) — 서버 반영은 필요 시 추가
   const handleAccept = (applicantId: number) => {
-    setApplicants((prev) => prev.map((a) => (a.id === applicantId ? { ...a, status: MatchStatus.Matching } : a)));
+    acceptApplicant(applicantId);
+    setApplicants((prev) => prev.map((a) => (a.applyId === applicantId ? { ...a, status: MatchStatus.Matching } : a)));
+    
   };
 
   const handleReject = (applicantId: number) => {
-    setApplicants((prev) => prev.map((a) => (a.id === applicantId ? { ...a, status: MatchStatus.Rejected } : a)));
+    setApplicants((prev) => prev.map((a) => (a.applyId === applicantId ? { ...a, status: MatchStatus.Rejected } : a)));
   };
 
   return (
@@ -219,7 +212,7 @@ export default function ApplicantsScreen({
             </TouchableOpacity>
             <View>
               <Text style={{ fontSize: 18, fontWeight: '600' }}>지원자 목록</Text>
-              <Text style={{ fontSize: 14, color: '#6b7280' }}>홍대 근처 투룸 쉐어하실 분!</Text>
+              <Text style={{ fontSize: 14, color: '#6b7280' }}>{title}</Text>
             </View>
           </View>
         </View>
@@ -292,24 +285,24 @@ export default function ApplicantsScreen({
 
           {/* 지원자 목록 */}
           <View style={{ gap: 16 }}>
-            {filteredApplicants.map((applicant) => (
-              <Card key={applicant.id}>
+            {filteredApplicants.map((applicant, idx) => (
+              <Card key={`${applicant.applyId}-${idx}`}>
                 <CardContent style={{ padding: 16 }}>
                   <View style={{ flexDirection: 'row', gap: 16 }}>
                     <Avatar style={{ width: 64, height: 64 }}>
-                      <AvatarFallback>{applicant.name.slice(0, 2)}</AvatarFallback>
+                      <AvatarFallback>{applicant.memberName.slice(0, 2)}</AvatarFallback>
                     </Avatar>
 
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <Text style={{ fontWeight: '600' }}>{applicant.name}</Text>
+                            <Text style={{ fontWeight: '600' }}>{applicant.memberName}</Text>
                             <Badge>{getStatusText(applicant.status)}</Badge>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                             <Text style={{ fontSize: 14, color: '#6b7280' }}>
-                              {getGenderText(applicant.gender)} • {applicant.age}
+                              {applicant.gender} • {applicant.birthDate}
                             </Text>
                           </View>
                         </View>
@@ -319,14 +312,14 @@ export default function ApplicantsScreen({
                         {applicant.status === MatchStatus.OnWait && (
                           <>
                             <Button
-                              onPress={() => handleAccept(applicant.id)}
+                              onPress={() => handleAccept(applicant.applyId)}
                               style={{ backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 8 }}
                             >
                               <Text style={{ color: 'white', fontSize: 14 }}>✓ 승인</Text>
                             </Button>
                             <Button
                               variant="outline"
-                              onPress={() => handleReject(applicant.id)}
+                              onPress={() => handleReject(applicant.applyId)}
                               style={{ borderColor: '#dc2626', paddingHorizontal: 16, paddingVertical: 8 }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -339,7 +332,7 @@ export default function ApplicantsScreen({
 
                         <Button
                           variant="outline"
-                          onPress={() => onNavigateToProfile?.(applicant.id)}
+                          onPress={() => onNavigateToProfile?.(applicant.applyId)}
                           style={{ paddingHorizontal: 16, paddingVertical: 8 }}
                         >
                           <Text style={{ fontSize: 14 }}>👤 프로필 보기</Text>

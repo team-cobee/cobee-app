@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/api/api';
+import { getAccessToken } from '@/api/tokenStorage';
 import {
   View,
   Text,
@@ -12,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { RecruitStatus } from '@/types/enums';
+import { MatchStatus, RecruitStatus } from '@/types/enums';
 
 interface MyPostsScreenProps {
   onBack: () => void;
@@ -24,6 +25,7 @@ interface MyPostsScreenProps {
 export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApplicants, onNavigateToEdit }: MyPostsScreenProps) {
   const [myPosts, setMyPosts] = useState<post[]>([]);
   const [auther, setAuthor] = useState<author>();
+  const [applicant, setApplicants] = useState<Applicant[]>([])
 
   interface post {
     postId : number,
@@ -41,6 +43,14 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
     imgUrl? : string[] | "test"
   }
 
+ interface Applicant {
+   memberName : string;
+   birthDate: string;
+   gender: string;
+   status: MatchStatus;
+   applyId : number
+ }
+ 
   interface author {
     id : number;
   }
@@ -63,6 +73,35 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
       cancelled = true;
     };
     }, []);   
+
+
+
+  const fetchApplicants = async (postId : number) => {
+    if (!postId) {                      // postId 없으면 빈 목록 처리
+      setApplicants([]);
+      return;
+    }
+    try {
+      const token = await getAccessToken().catch(() => null);  
+      const res = await api.get(`/apply/${postId}/all`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}, 
+      });
+
+      // 응답을 방어적으로 배열 추출
+      const payload = res?.data?.data ?? res?.data ?? [];
+      const list =
+        Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.content)
+          ? payload.content
+          : [];
+
+      setApplicants(list as Applicant[]);
+    } catch (e: any) {
+      setApplicants([]);               
+    }
+  [postId]};
+
 
 
   const handleDeleteClick = (postId: number) => {
@@ -210,10 +249,6 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                       borderTopColor: '#e5e7eb',
                     }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Ionicons name="eye" size={12} color="#6b7280" />
-                          <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.viewd}</Text>
-                        </View>
                         {/* <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                           <Ionicons name="chatbubble" size={12} color="#6b7280" />
                           <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.interests}</Text>
@@ -225,13 +260,13 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                           }}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
-                          <Ionicons name="person" size={12} color={post.applicants > 0 ? '#F7B32B' : '#6b7280'} />
+                          <Ionicons name="person" size={12} color={applicant.length > 0 ? '#F7B32B' : '#6b7280'} />
                           <Text style={{
                             fontSize: 14,
-                            color: post.applicants > 0 ? '#F7B32B' : '#6b7280',
-                            fontWeight: post.applicants > 0 ? '500' : 'normal',
+                            color: applicant.length > 0 ? '#F7B32B' : '#6b7280',
+                            fontWeight: applicant.length > 0 ? '500' : 'normal',
                           }}>
-                            {post.applicants}명 지원
+                            {applicant.length}명 지원
                           </Text>
                         </TouchableOpacity>
                       </View>

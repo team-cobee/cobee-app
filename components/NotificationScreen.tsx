@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
+import { AlarmSourceType, AlarmType } from '@/types/enums';
 
 interface NotificationScreenProps {
   onBack?: () => void;
@@ -15,8 +16,9 @@ interface NotificationScreenProps {
   onNavigateToSettings?: () => void;
 }
 
-export default function NotificationScreen({ onBack, onNavigateToJob, onNavigateToSettings }: NotificationScreenProps) {
-  const [notifications, setNotifications] = useState([
+
+/*
+
     {
       id: 1,
       type: "apply",
@@ -44,7 +46,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
       isRead: true,
       icon: 'heart'
     },
-    {
+        {
       id: 4,
       type: "system",
       title: "프로필 업데이트 알림",
@@ -53,7 +55,22 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
       isRead: true,
       icon: 'notifications'
     }
-  ]);
+
+    */
+
+  interface NotificationResponse {
+    noticeId : number;
+    isRead : boolean;
+    alarmId : number;
+    alarmType : AlarmType;  // 백엔드 알림 타입바꾸기 
+    sourceType : AlarmSourceType;
+    sourceId : number;
+    fromUserId : number;
+    toUserId : number;
+  }
+  
+export default function NotificationScreen({ onBack, onNavigateToJob, onNavigateToSettings }: NotificationScreenProps) {
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
 
   const markAllAsRead = () => {
     setNotifications(notifications.map(notification => ({
@@ -65,7 +82,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
 
   const handleNotificationClick = (notificationId: number) => {
     setNotifications(notifications.map(notification => 
-      notification.id === notificationId 
+      notification.noticeId === notificationId 
         ? { ...notification, isRead: true }
         : notification
     ));
@@ -129,8 +146,8 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
           {notifications.map((notification) => {
             return (
               <TouchableOpacity
-                key={notification.id}
-                onPress={() => handleNotificationClick(notification.id)}
+                key={notification.noticeId}
+                onPress={() => handleNotificationClick(notification.noticeId)}
                 activeOpacity={0.7}
               >
                 <Card style={{
@@ -142,14 +159,14 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: getBgColor(notification.type, notification.isRead),
+                        backgroundColor: getBgColor(notification.alarmType, notification.isRead),
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
                         <Ionicons 
                           name={notification.icon as any} 
                           size={20} 
-                          color={notification.isRead ? '#9ca3af' : getIconColor(notification.type)} 
+                          color={notification.isRead ? '#9ca3af' : getIconColor(notification.alarmType)} 
                         />
                       </View>
                       
@@ -161,10 +178,10 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
                             color: notification.isRead ? '#6b7280' : '#111827',
                             flex: 1,
                           }}>
-                            {notification.title}
+                            {notification.alarmId} {/*수정해야함*/}
                           </Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 12, color: '#6b7280' }}>{notification.time}</Text>
+                            {/* <Text style={{ fontSize: 12, color: '#6b7280' }}>{notification.}</Text> */}
                             {!notification.isRead && (
                               <View style={{
                                 width: 8,
@@ -180,7 +197,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
                           color: notification.isRead ? '#9ca3af' : '#374151',
                           lineHeight: 20,
                         }}>
-                          {notification.message}
+                          {notification.sourceId}  {/*이것도 수정하기 */}
                         </Text>
                       </View>
                     </View>

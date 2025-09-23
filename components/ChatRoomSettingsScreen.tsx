@@ -238,6 +238,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   const [selectedMember, setSelectedMember] = useState<ChatRoomMember | null>(null);
   const [showLeaveRoomModal, setShowLeaveRoomModal] = useState(false);
   const [chatRoom, setChatRoom] = useState<ChatRoomInfo>();
+  const [chatComplete, setChatComplete] = useState<ChatRoomComplete>();
   const [members, setMembers] = useState<ChatRoomMember[]>([]);
   const [recruitStatus, setRecruitStatus] = useState<RecruitStatus>(RecruitStatus.Recruiting);
   const [exitRoom, setExitRoom] = useState(false);
@@ -257,16 +258,38 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
     maxMemberCount : number;
     currentUserCoun : number;
   }
+  
+  interface ChatRoomComplete {
+    complete : boolean;
+    postId : number;
+  }
 
   interface AuthMember {
   id : number;
   name : string;
   isHost : boolean;
-}
+  }
 
   interface RecruitInfo { // TODO : 구인글 조회 & 수정 api로 상태 수정.. 
-      status : RecruitStatus
+    status : RecruitStatus
   }
+
+  const chatStatus = async() => {
+    const res = await api.get(`/chat/rooms/complete/${chatRoom?.id}`)
+    setChatComplete(res.data.data);
+    if (chatComplete?.complete) {
+      changeRecruitStatus(RecruitStatus.RecruitOver);
+      console.log('채팅방 인원 모집 완료');
+    }
+  }
+
+  const changeRecruitStatus = async(status : RecruitStatus) => {
+      const res = await api.patch(`/recruits/${chatRoom?.postId}/status/${status}`);
+      console.log("------------dddd---");
+      setRecruitStatus(res.data.data.recruitStatus);
+      console.log(res.data.data);
+  }
+  
 
   const getUserInfo = async () => {
       const res = await api.get(`/auth`);
@@ -276,6 +299,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   
   const fetchChatRoomInfo = async () => {
     const res = await api.get(`chat/rooms/my`);
+    console.log("---------------");
     setChatRoom(res.data.data);
   }
 
@@ -288,7 +312,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
     const res = await api.get(`chat/rooms/${chatRoomId}/users`);
     setMembers(res.data.data ?? []);
     console.log("---------------");
-    console.log(res);
+    console.log(res.data.data);
   }
   
   const editChatRoomName = async (newChatRoomName: string, postId : number) => {
@@ -330,6 +354,7 @@ export default function ChatRoomSettingsScreen({ onBack, onLeaveChatRoom }: Chat
   useEffect(() => {
    fetchChatRoomInfo();
    getUserInfo();
+   chatStatus();
  }, []);
 
   useEffect(() => {
