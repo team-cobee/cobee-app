@@ -68,6 +68,7 @@ interface NotificationScreenProps {
     fromUserId : number;
     toUserId : number;
   }
+  
 export default function NotificationScreen({ onBack, onNavigateToJob, onNavigateToSettings }: NotificationScreenProps) {
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
 
