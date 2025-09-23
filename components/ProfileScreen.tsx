@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@/api/api';
+import { clearTokens } from '@/api/tokenStorage';
 import {
   View,
   Text,
@@ -218,7 +219,9 @@ export default function ProfileScreen({
         },
       });
 
+      clearTokens();
       console.log('회원 탈퇴 성공:', res.data);
+      
       // 성공 후 처리 (예: 로그아웃, 메인 화면 이동 등)
     } catch (error) {
       console.error('회원 탈퇴 실패:', error);
@@ -235,6 +238,7 @@ export default function ProfileScreen({
         },
       });
       console.log('회원 로그아웃 완료');
+      clearTokens();
     } catch {
       console.log("회원 로그이웃 실패");
     }

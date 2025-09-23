@@ -1,6 +1,6 @@
 import { Gender, MatchStatus, Lifestyle, Snoring, Smoking, Personality, Pets } from '@/types/enums';
 import React, { useState } from 'react';
-
+import { AddressResult } from '../components/AddressSearchModal';
 import AddressSearchModal from '../components/AddressSearchModal';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
@@ -10,7 +10,6 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { api } from '../api/api';
 
-const API_BASE_URL = 'http://localhost:8080';
 const { width } = Dimensions.get('window');
 
 /** 프론트 값 → 서버 enum 문자열 매핑 */
@@ -67,6 +66,7 @@ interface CreateJobPostingProps {
   onSuccess: () => void;
   onComplete: (postId: string) => void; // 서버에서 생성된 postId를 문자열로 콜백
   editJobId?: string | null;
+  
 }
 
 const styles = StyleSheet.create({
@@ -117,6 +117,17 @@ export default function CreateJobPosting({
   const [newImageUrl, setNewImageUrl] = useState('');
   const [open, setOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState('');
+  const [showAddressModal, setShowAddressModal] = useState(false);
+
+// 주소 선택 핸들러
+const handleAddressSelect = (addr: AddressResult) => {
+  console.log('주소 선택됨:', addr);
+  setSelectedAddress(addr.fullAddress);        // 선택된 주소 저장
+  setShowAddressModal(false);                  // 모달 닫기
+  setFormData((prev) => ({ ...prev, address: addr.fullAddress })); // ✅ input 값 자동완성
+};
+
+
 
   /** 폼 상태(화면 → 서버 요청으로 변환할 로우 데이터) */
   const [formData, setFormData] = useState({
@@ -630,9 +641,24 @@ const renderStep4 = () => (
             value={formData.address}
             onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
           />
-          <TouchableOpacity onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
-            <Text style={ {backgroundColor: '#111827', borderRadius: 8, height: 44, paddingHorizontal: 16, justifyContent: 'center'} }>검색</Text>
-          </TouchableOpacity>
+          <TouchableOpacity
+          onPress={() => setShowAddressModal(true)}
+          style={{
+            borderWidth: 1,
+            borderColor: '#d1d5db',
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16, color: selectedAddress ? '#000' : '#9ca3af' }}>
+            {selectedAddress || '주소를 검색해주세요'}
+          </Text>
+          <Ionicons name="search" size={16} color="#9ca3af" />
+        </TouchableOpacity>
         </View>
       ) : (
         // ✅ 함께 방을 찾는 경우: 자유 입력
@@ -699,14 +725,9 @@ const renderStep4 = () => (
 
     {/* ✅ 주소 선택 모달 - 선택 시 formData.address도 업데이트 */}
     <AddressSearchModal
-      visible={open}
-      onClose={() => setOpen(false)}
-      onSelect={(addr) => {
-        // 선택된 주소를 입력창에 바로 반영
-        setFormData((prev) => ({ ...prev, address: addr.fullAddress }));
-        // AddressSearchModal 쪽 handleMessage에서 onClose를 이미 부르지만,
-        // 혹시 몰라서 중복 닫기 방지하려면 여기서는 안 불러도 됩니다.
-      }}
+      visible={showAddressModal}
+      onClose={() => setShowAddressModal(false)}
+      onSelect={handleAddressSelect}
     />
   </View>
 );

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent } from './ui/card';
+import { AlarmSourceType, AlarmType } from '@/types/enums';
 
 interface NotificationScreenProps {
   onBack?: () => void;
@@ -61,8 +62,8 @@ interface NotificationScreenProps {
     noticeId : number;
     isRead : boolean;
     alarmId : number;
-    alarmType : string;  // 백엔드 알림 타입바꾸기 
-    sourceType : string;
+    alarmType : AlarmType;  // 백엔드 알림 타입바꾸기 
+    sourceType : AlarmSourceType;
     sourceId : number;
     fromUserId : number;
     toUserId : number;

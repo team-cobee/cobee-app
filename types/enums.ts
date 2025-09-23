@@ -82,7 +82,12 @@ export enum AlarmType {
     Chat = 'CHAT',
     ChatInvited = 'INVITED',
     NewApply = 'NEW_APPLY',
-    StartMatching = 'START_MATCHING',
+    StartMatching = 'START_MATCHING',  // 초대 보내기 
     MatchComplete = 'MATCH_COMPLETE'
 }
 
+export enum AlarmSourceType {
+  COMMENT = 'COMMENT', 
+  CHATROOM = 'CHATROOM', 
+  RECRUIT_POST = 'RECRUIT_POST'
+}

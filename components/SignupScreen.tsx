@@ -120,32 +120,6 @@ interface form {
   extractedGender: string| null;
 }
 
-// const INITIAL_FORM: form = {
-//   preferredGender: Gender.Female,
-//   ageMin: 20,
-//   ageMax: 80,
-//   lifestyle: Lifestyle.Evening,
-//   personality: Personality.Introvert,
-//   smokingPreference: false,
-//   snoringPreference: false,
-//   maxRoommates: 2,
-//   petPreference: false,
-
-//   myLifestyle: Lifestyle.Evening,
-//   myPersonality: Personality.Extrovert,
-//   mySmokingStatus: Smoking.Impossible,
-//   mySnoringStatus: Snoring.Impossible,
-//   myPetStatus: Pets.Impossible,
-//   info: '',
-
-//   idVerified: false,
-//   idImageFile: null,
-//   idImagePreview: null,
-//   idImageDataUrl: null,
-//   extractedName: '',
-//   extractedBirthDate: '',
-//   extractedGender: Gender.Female,
-// };
 
 const INITIAL_FORM: form = {
   preferredGender: null,
