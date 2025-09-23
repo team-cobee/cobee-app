@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "@/api/api";
+import { getAccessToken } from "@/api/tokenStorage";
 import {
   Gender,
   Lifestyle,
@@ -28,86 +29,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Double } from "react-native/Libraries/Types/CodegenTypes";
 import { set } from "react-hook-form";
 import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
+import { getContrastColor } from "./ui/utils";
 
 // --- UI 컴포넌트 재구현 ---
 
 // 지원하기 정보도 있어야 함. 내가 이 구인글에 지원했는지 여부... ㄷㄷㄷ
 
-const Card = ({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) => <View style={[styles.card, style]}>{children}</View>;
 
-const CardHeader = ({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) => <View style={[styles.cardHeader, style]}>{children}</View>;
-
-const CardContent = ({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) => <View style={[styles.cardContent, style]}>{children}</View>;
-
-const Button = ({
-  children,
-  onPress,
-  style,
-  textStyle,
-  disabled,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-  textStyle?: any;
-  disabled?: boolean;
-}) => (
-  <TouchableOpacity
-    onPress={onPress}
-    disabled={disabled}
-    style={[styles.button, style, disabled && styles.buttonDisabled]}
-  >
-    <Text style={[styles.buttonText, textStyle]}>{children}</Text>
-  </TouchableOpacity>
-);
-
-const Badge = ({
-  children,
-  style,
-  textStyle,
-}: {
-  children: React.ReactNode;
-  style?: any;
-  textStyle?: any;
-}) => (
-  <View style={[styles.badge, style]}>
-    <Text style={[styles.badgeText, textStyle]}>{children}</Text>
-  </View>
-);
-
-const Avatar = ({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) => <View style={[styles.avatar, style]}>{children}</View>;
-
-const AvatarFallback = ({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) => <Text style={[styles.avatarFallback, style]}>{children}</Text>;
 
 // 인터페이스 정의 모음집 
 interface Comment {
@@ -211,6 +139,82 @@ export default function JobPostingDetail({
   onDelete,
   showEditButtons,
 }: JobPostingDetailProps) {
+  const Card = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => <View style={[styles.card, style]}>{children}</View>;
+
+const CardHeader = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => <View style={[styles.cardHeader, style]}>{children}</View>;
+
+const CardContent = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => <View style={[styles.cardContent, style]}>{children}</View>;
+
+const Button = ({
+  children,
+  onPress,
+  style,
+  textStyle,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  textStyle?: any;
+  disabled?: boolean;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    disabled={disabled}
+    style={[styles.button, style, disabled && styles.buttonDisabled]}
+  >
+    <Text style={[styles.buttonText, textStyle]}>{children}</Text>
+  </TouchableOpacity>
+);
+
+const Badge = ({
+  children,
+  style,
+  textStyle,
+}: {
+  children: React.ReactNode;
+  style?: any;
+  textStyle?: any;
+}) => (
+  <View style={[styles.badge, style]}>
+    <Text style={[styles.badgeText, textStyle]}>{children}</Text>
+  </View>
+);
+
+const Avatar = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => <View style={[styles.avatar, style]}>{children}</View>;
+
+const AvatarFallback = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => <Text style={[styles.avatarFallback, style]}>{children}</Text>;
+
   const editButtons = showEditButtons ?? false;
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -278,10 +282,22 @@ export default function JobPostingDetail({
 };
 
 const postComment = async (content: string, parentId: number | null) => { 
-  const res = await api.post(`/${loginUser?.id}/posts/${recruit?.postId}/comments`, { postId: jobId, content, parentId });  
-
+  const token = await getAccessToken().catch(() => null);  
+  const res = await api.post(`/posts/${jobId}/comments`, 
+    { postId: jobId, content, parentId },
+    {headers: token ? { Authorization: `Bearer ${token}` } : {}},    
+  );  
+  console.log(res);
+  setComments(prev => [...prev, res.data.data]);
 }
-
+const getAllComments = async (postId : number) => {
+  const token = await getAccessToken().catch(() => null);  
+  const res = await api.get(`/posts/${jobId}/comments`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}, 
+  });
+  console.log(res.data.data);
+  setComments(res.data.data);
+}
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +307,7 @@ const postComment = async (content: string, parentId: number | null) => {
       try {
         const authInfo = await api.get("/auth");
         const profileInfo = await api.get("/public-profiles");
+        getAllComments(jobId as number);
         if (cancelled) return;
         setAuthor(authInfo.data?.data ?? null);
         setPublicProfile(profileInfo.data?.data ?? null);
@@ -369,10 +386,8 @@ const postComment = async (content: string, parentId: number | null) => {
   const getSmokingText = (smoking?: Smoking) => {
     if (!smoking) return "상관없음";
     const map: Record<Smoking, string> = {
-      [Smoking.Smoke]: "흡연 가능",
-      [Smoking.NotSmoke]: "비흡연",
-      [Smoking.Impossible]: "흡연 불가",
-      [Smoking.None]: "상관없음",
+      [Smoking.None]: "흡연 가능",
+      [Smoking.Impossible]: "비흡연"
     };
     return map[smoking] ?? smoking;
   };
@@ -381,10 +396,8 @@ const postComment = async (content: string, parentId: number | null) => {
   const getSnoringText = (snoring?: Snoring) => {
     if (!snoring) return "상관없음";
     const map: Record<Snoring, string> = {
-      [Snoring.Snore]: "코골이 있음",
-      [Snoring.NoSnore]: "코골이 없음",
-      [Snoring.Impossible]: "코골이 불가",
-      [Snoring.None]: "상관없음",
+      [Snoring.None]: "코골이 있음",
+      [Snoring.Impossible]: "코골이 없음",
     };
     return map[snoring] ?? snoring;
   };
@@ -393,11 +406,9 @@ const postComment = async (content: string, parentId: number | null) => {
   const getPetText = (pet?: Pets) => {
     if (!pet) return "상관없음";
     const map: Record<Pets, string> = {
-      [Pets.Have]: "있음",
-      [Pets.NotHave]: "없음",
-      [Pets.Possible]: "가능",
-      [Pets.Impossible]: "불가능",
-      [Pets.None]: "상관없음",
+      [Pets.None]: "있음",
+      [Pets.Impossible]: "없음",
+      [Pets.Possible]: "가능"
     };
     return map[pet] ?? pet;
   };
@@ -429,35 +440,12 @@ const postComment = async (content: string, parentId: number | null) => {
 
   // 원댓글 추가
   const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment: Comment = {
-        commentId: Date.now(),
-        parentId: null,
-        content: newComment,
-        nickname: "현재 사용자",
-        profileImg: null,
-      };
-      setComments((prev) => [...prev, comment]);
-      setNewComment("");
-      Alert.alert("완료", "댓글이 등록되었습니다.");
-    }
+    postComment(newComment, null);
   };
 
   // 대댓글 추가
   const handleAddReply = (parentCommentId: number) => {
-    if (newReply.trim()) {
-      const reply: Comment = {
-        commentId: Date.now(),
-        parentId: parentCommentId,
-        content: newReply,
-        nickname: "현재 사용자",
-        profileImg: null,
-      };
-      setComments((prev) => [...prev, reply]);
-      setNewReply("");
-      setReplyingTo(null);
-      Alert.alert("완료", "답글이 등록되었습니다.");
-    }
+    postComment(newReply,parentCommentId);
   };
 
   // 원댓글만 추출
