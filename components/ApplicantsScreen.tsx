@@ -100,12 +100,12 @@ const filteredApplicants = useMemo(() => {
   const list = Array.isArray(applicants) ? applicants : [];   // ✅ 안전 보정
   return selectedFilter === 'all'
     ? list
-    : list.filter(a => a.status === selectedFilter);
+    : list.filter(a => a.matchStatus === selectedFilter);
 }, [applicants, selectedFilter]);
 
   const counts = useMemo(() => {
     const list = Array.isArray(applicants) ? applicants : [];   //  안전 보정을 위한 코드 NPE 주의 
-    const by = (s: MatchStatus) => list.filter(a => a.status === s).length;
+    const by = (s: MatchStatus) => list.filter(a => a.matchStatus === s).length;
 
     return {
       total: list.length,
@@ -202,10 +202,10 @@ const filteredApplicants = useMemo(() => {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         }
       );
-    
+      
       console.log(res.data?? res.data.data);
     } catch {
-        
+
       }
     }
 
@@ -336,7 +336,7 @@ const filteredApplicants = useMemo(() => {
                             </Button>
                             <Button
                               variant="outline"
-                              onPress={() => handleReject(applicant.applyId)}
+                              onPress={() => handleReject(applicant.applyId, false)}
                               style={{ borderColor: '#dc2626', paddingHorizontal: 16, paddingVertical: 8 }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

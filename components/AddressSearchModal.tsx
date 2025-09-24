@@ -381,12 +381,12 @@ export default function AddressSearchModal({ visible, onClose, onSelect, startin
             });
           },
           width:'100%', height:'100%'
-        }).embed(wrap, { q: initialQuery, autoClose: true }); // 👈 사용자 제스처로 시작했으니 embed도 안전
+        }).embed(wrap, { q: initialQuery, autoClose: true });
       }
 
       document.getElementById('open').addEventListener('click', openPostcode);
 
-      // (선택) RN에서 다시 열기 시키고 싶을 때
+    
       window.addEventListener('message', function(e){
         try{
           var msg = JSON.parse(e.data || '{}');

@@ -319,7 +319,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
         <View style={{ gap: 12 }}>
           {notifications.map((notification) => {
             // ✅ 채팅방 초대 알림일 경우 별도 UI
-            if (notification.alarmType === AlarmType.START_MATCHING) {
+            if (notification.alarmType === AlarmType.StartMatching) {
               return (
                 <Card key={notification.noticeId} style={{ borderWidth: 1, borderColor: '#F7B32B' }}>
                   <CardContent style={{ padding: 16 }}>
