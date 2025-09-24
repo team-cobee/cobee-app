@@ -336,6 +336,7 @@ import {
   ScrollView,
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
+import { getAccessToken } from '@/api/tokenStorage';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/api/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -374,20 +375,28 @@ useEffect(() => {
   }, []); 
 
 
+const getPublicProfile = async() => {
+  const token = await getAccessToken().catch(() => null);  
+  const res = await api.get('/public-profiles', {
+    headers : token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  setPublicProfile(res.data.data);
+}
 useEffect(() => {
   let cancelled = false;
   const load = async () => {
     try {
       setLoading(true);
-      const [p, o] = await Promise.all([
-        api.get('/public-profiles'),
-        api.get('/ocr/status'),
-      ]);
-      if (cancelled) return;
-      console.log(p.data);
-      console.log(o.data);
-      setPublicProfile(p.data?.data ?? p.data ?? null);
-      setOcr(o.data?.data ?? o.data ?? null);
+      getPublicProfile();
+      // const [p, o] = await Promise.all([
+      //   api.get('/public-profiles'),
+      //   api.get('/ocr/status'),
+      // ]);
+      // if (cancelled) return;
+      // console.log(p.data);
+      // console.log(o.data);
+      // setPublicProfile(p.data?.data ?? p.data ?? null);
+      // setOcr(o.data?.data ?? o.data ?? null);
     } finally {
       if (!cancelled) setLoading(false);
     }
@@ -409,17 +418,15 @@ function getAge(birthdate: string): number {
 const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
 
   interface profile {
-    name : string, 
-    age : number,
-    gender : Gender,
-    email : string,
-    profileImg : string,
-    info : string, 
-    personality : Personality,
-    lifestyle : Lifestyle,
-    smoking : Smoking,
-    hasPet : Pets,
-    snoring : Snoring
+    userId: number,
+    name: number,
+    gender : string,
+    info: string,
+    mLifestyle: Lifestyle,
+    mPersonality: Personality,
+    mSmoking: Smoking,
+    mSnoring: Snoring,
+    mPet: Pets
   }
 
   interface verification {
@@ -439,9 +446,9 @@ const ageText = userInfo?.birthDate ? `${getAge(userInfo.birthDate)}세` : '';
   };
 
 
-  const tGender = (g?: Gender) =>
-  g === Gender.Male ? '남성' :
-  g === Gender.Female ? '여성' :
+  const tGender = (g?: string) =>
+  g === "MALE" ? '남성' :
+  g === "FEMALE" ? '여성' :
   '상관없음';
 
 const tLifestyle = (v?: Lifestyle) =>
@@ -499,11 +506,11 @@ const getLifestyleLabel = (key: LifestyleKey) => {
 };
 
 const lifestyleRows: { key: LifestyleKey; label: string; value: string }[] = [
-  { key: 'lifestyle',   label: getLifestyleLabel('lifestyle'),   value: tLifestyle(publicProfile.lifestyle) },
-  { key: 'personality', label: getLifestyleLabel('personality'), value: tPersonality(publicProfile.personality) },
-  { key: 'smoking',     label: getLifestyleLabel('smoking'),     value: tSmoking(publicProfile.smoking) },
-  { key: 'hasPet',      label: getLifestyleLabel('hasPet'),      value: tPets(publicProfile.hasPet) },
-  { key: 'snoring',     label: getLifestyleLabel('snoring'),     value: tSnoring(publicProfile.snoring) },
+  { key: 'lifestyle',   label: getLifestyleLabel('lifestyle'),   value: tLifestyle(publicProfile.mLifestyle) },
+  { key: 'personality', label: getLifestyleLabel('personality'), value: tPersonality(publicProfile.mPersonality) },
+  { key: 'smoking',     label: getLifestyleLabel('smoking'),     value: tSmoking(publicProfile.mSmoking) },
+  { key: 'hasPet',      label: getLifestyleLabel('hasPet'),      value: tPets(publicProfile.mPet) },
+  { key: 'snoring',     label: getLifestyleLabel('snoring'),     value: tSnoring(publicProfile.mSnoring) },
 ];
 
 
@@ -560,7 +567,7 @@ const lifestyleRows: { key: LifestyleKey; label: string; value: string }[] = [
                   <Text style={{ fontSize: 14, color: '#6b7280' }}>{publicProfile.gender}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={{ fontSize: 14, color: '#6b7280' }}>{publicProfile.email}</Text>
+                  <Text style={{ fontSize: 14, color: '#6b7280' }}>{publicProfile.name}</Text>
                 </View>
               </View>
             </View>
