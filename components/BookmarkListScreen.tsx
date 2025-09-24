@@ -59,7 +59,7 @@ function buildTagsFromEnums(job: Partial<BookmarkJob>): string[] {
 
   // 흡연
   if (job.smoking) {
-    if (job.smoking === Smoking.NotSmoke) tags.push('비흡연자');
+    if (job.smoking === Smoking.) tags.push('비흡연자');
     if (job.smoking === Smoking.Smoke) tags.push('흡연자');
     if (job.smoking === Smoking.Impossible) tags.push('흡연자 안됨');
     if (job.smoking === Smoking.None) tags.push('흡연 상관없음');

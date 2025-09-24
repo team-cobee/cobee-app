@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Slider } from './ui/slider';
+import { Lifestyle, Personality, Pets, Smoking, Snoring } from '@/types/enums';
 
 interface ProfileEditScreenProps {
   onBack: () => void;
@@ -17,11 +18,19 @@ interface ProfileEditScreenProps {
 }
 
 export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenProps) {
-  const [profileData, setProfileData] = useState<profile>([]);
+  const [profileData, setProfileData] = useState<profile>();
   const [isChanged, setIsChanged] = useState(false);
 
   interface profile {
-    
+    userId: number,
+    name: number,
+    gender : string,
+    info: string,
+    mLifestyle: Lifestyle,
+    mPersonality: Personality,
+    mSmoking: Smoking,
+    mSnoring: Snoring,
+    mPet: Pets
   }
 
   const handleInputChange = (field: string, value: string | number) => {
@@ -511,7 +520,7 @@ export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenP
               }}
               multiline
               numberOfLines={6}
-              value={profileData.bio}
+              value={profileData?.info}
               onChangeText={(value) => handleInputChange('bio', value)}
               placeholder="자신을 소개하는 글을 자유롭게 작성해주세요"
               maxLength={500}
@@ -521,7 +530,7 @@ export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenP
                 다른 사용자에게 보여지는 소개글입니다
               </Text>
               <Text style={{ fontSize: 12, color: '#6b7280' }}>
-                {profileData.bio.length}/500
+                {profileData?.info.length}/500
               </Text>
             </View>
           </CardContent>
@@ -536,7 +545,7 @@ export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenP
             <View style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8, gap: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Avatar style={{ width: 48, height: 48 }}>
-                  <AvatarFallback>{profileData.nickname.slice(0, 2)}</AvatarFallback>
+                  <AvatarFallback>{profileData?.name.slice(0, 2)}</AvatarFallback>
                 </Avatar>
                 <View>
                   <Text style={{ fontWeight: '500', fontSize: 16 }}>{profileData.nickname}</Text>
@@ -548,13 +557,13 @@ export default function ProfileEditScreen({ onBack, onSave }: ProfileEditScreenP
                 <View style={{ flex: 1, minWidth: '45%' }}>
                   <Text style={{ fontSize: 12, color: '#6b7280' }}>생활패턴</Text>
                   <Text style={{ fontWeight: '500', fontSize: 14 }}>
-                    {profileData.lifestyle === 'morning' ? '아침형' : '저녁형'}
+                    {profileData?.mLifestyle === Lifestyle.Morning ? '아침형' : '저녁형'}
                   </Text>
                 </View>
                 <View style={{ flex: 1, minWidth: '45%' }}>
                   <Text style={{ fontSize: 12, color: '#6b7280' }}>성격</Text>
                   <Text style={{ fontWeight: '500', fontSize: 14 }}>
-                    {profileData.personality === 'homebody' ? '집순이' : '밖순이'}
+                    {profileData?.mPersonality === Personality.Introvert ? '집순이' : '밖순이'}
                   </Text>
                 </View>
                 <View style={{ flex: 1, minWidth: '45%' }}>

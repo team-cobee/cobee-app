@@ -220,14 +220,7 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                       <Ionicons name="location" size={12} color="#6b7280" />
                       <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.address}</Text>
                     </View>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="calendar" size={12} color="#6b7280" />
-                        <Text style={{ fontSize: 14, color: '#6b7280' }}>{post.createdAt}</Text>
-                      </View>
-                    </View>
-
+                    
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <View>
                         <Text style={{ fontSize: 18, fontWeight: '600', color: '#F7B32B' }}>
@@ -266,7 +259,7 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
                             color: applicant.length > 0 ? '#F7B32B' : '#6b7280',
                             fontWeight: applicant.length > 0 ? '500' : 'normal',
                           }}>
-                            {applicant.length}명 지원
+                            지원자 확인하기
                           </Text>
                         </TouchableOpacity>
                       </View>
