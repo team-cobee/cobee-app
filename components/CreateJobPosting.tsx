@@ -116,7 +116,6 @@ export default function CreateJobPosting({
   onBack, onSuccess, onComplete, editJobId,
 }: CreateJobPostingProps) {
   const [step, setStep] = useState(1);
-  const [open, setOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -163,9 +162,16 @@ export default function CreateJobPosting({
 // 주소 선택 핸들러
 const handleAddressSelect = (addr: AddressResult) => {
   console.log('주소 선택됨:', addr);
+  console.log('설정할 주소:', addr.fullAddress);
+  
   setSelectedAddress(addr.fullAddress);        // 선택된 주소 저장
   setShowAddressModal(false);                  // 모달 닫기
-  setFormData((prev) => ({ ...prev, address: addr.fullAddress })); // ✅ input 값 자동완성
+  setFormData((prev) => ({ 
+    ...prev, 
+    address: addr.fullAddress 
+  })); // ✅ input 값 자동완성
+  
+  console.log('formData.address 업데이트됨:', addr.fullAddress);
 };
 
 
@@ -752,8 +758,8 @@ const renderStep4 = () => (
             alignItems: 'center',
           }}
         >
-          <Text style={{ fontSize: 16, color: selectedAddress ? '#000' : '#9ca3af' }}>
-            {selectedAddress || '주소를 검색해주세요'}
+          <Text style={{ fontSize: 16, color: (selectedAddress || formData.address) ? '#000' : '#9ca3af' }}>
+            {selectedAddress || formData.address || '주소를 검색해주세요'}
           </Text>
           <Ionicons name="search" size={16} color="#9ca3af" />
         </TouchableOpacity>
@@ -767,8 +773,19 @@ const renderStep4 = () => (
             value={formData.address}
             onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
           />
-          <TouchableOpacity onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
-            <Text style={ {backgroundColor: '#111827', borderRadius: 8, height: 44, paddingHorizontal: 16, justifyContent: 'center'} }>검색</Text>
+          <TouchableOpacity 
+            onPress={() => setShowAddressModal(true)} 
+            style={{ 
+              backgroundColor: '#111827', 
+              borderRadius: 8, 
+              height: 44, 
+              paddingHorizontal: 16, 
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: 8 
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>검색</Text>
           </TouchableOpacity>
         </View>
       )}
