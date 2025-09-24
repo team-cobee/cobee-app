@@ -4,7 +4,9 @@ import { AddressResult } from '../components/AddressSearchModal';
 import AddressSearchModal from '../components/AddressSearchModal';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
+  Image, Platform
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -114,10 +116,29 @@ export default function CreateJobPosting({
   onBack, onSuccess, onComplete, editJobId,
 }: CreateJobPostingProps) {
   const [step, setStep] = useState(1);
-  const [newImageUrl, setNewImageUrl] = useState('');
+//  const [newImageUrl, setNewImageUrl] = useState('');
   const [open, setOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+
+  const pickImage = async () => {
+    // No permissions request is necessary for launching the image library
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setSelectedImages([...selectedImages, ...result.assets]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(selectedImages.filter((_, i) => i !== index));
+  };
+
 
 // 주소 선택 핸들러
 const handleAddressSelect = (addr: AddressResult) => {
@@ -233,10 +254,9 @@ const handleAddressSelect = (addr: AddressResult) => {
     }
   };
 
-  /** 제출 → /recruits (POST) */
+  /** 제출 → /recruits/with-images (POST) */
   const handleSubmit = async () => {
-    try {
-      const body: RecruitRequest = {
+      const requestDto: Omit<RecruitRequest, 'imgUrl'> & {imgUrl?: string[]} = {
         title: formData.title,
         recruitCount: Number(formData.recruitCount),
         rentCostMin: Number(formData.depositMin),
@@ -245,23 +265,37 @@ const handleAddressSelect = (addr: AddressResult) => {
         monthlyCostMax: Number(formData.monthlyRentMax),
         minAge: Number(formData.ageMin),
         maxAge: Number(formData.ageMax),
-
         lifestyle: toLifestyleEnum(formData.lifestyle) as RecruitRequest['lifestyle'],
         personality: toPersonalityEnum(formData.personality) as RecruitRequest['personality'],
         isSmoking: toSmokingEnum(formData.smoking) as RecruitRequest['isSmoking'],
         isSnoring: toSnoringEnum(formData.snoring) as RecruitRequest['isSnoring'],
         isPetsAllowed: toPetsEnum(formData.pets) as RecruitRequest['isPetsAllowed'],
-
         hasRoom: formData.hasRoom === 'has',
-
-        imgUrl: formData?.images,
-
         address: formData.address,
         detailDescription: formData.detailDescription,
         additionalDescription: formData.additionalDescription,
       };
 
-      const res = await api.post('/recruits', body);
+      requestDto.imgUrl = [];
+
+
+      const form = new FormData();
+      form.append('request', new Blob([JSON.stringify(requestDto)], { type: 'application/json' }));
+      selectedImages.forEach((image) => {
+        const file = {
+          uri: image.uri,
+          type: image.mimeType || 'image/jpeg',
+          name: image.fileName || `image-${Date.now()}.jpg`,
+      };
+      form.append('images', file as any);
+    });
+
+    try {
+      const res = await api.post('/recruits/with-images', form, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       const data = res.data?.data ?? res.data;
       const postId = data?.postId ?? data?.id;
@@ -270,6 +304,7 @@ const handleAddressSelect = (addr: AddressResult) => {
       onComplete(String(postId ?? `post_${Date.now()}`));
       
     } catch (e: any) {
+      console.error(JSON.stringify(e.response?.data, null, 2));
       Alert.alert('실패', e?.message ?? '등록 중 오류가 발생했습니다.');
     }
   };
@@ -675,50 +710,33 @@ const renderStep4 = () => (
         </View>
       )}
 
-      {/* 이하 이미지 URL 추가 섹션은 기존 코드 유지 */}
+      {/* 이미지 업로드 섹션 */}
       <View style={styles.formSection}>
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>이미지 URL 추가</Text>
-          <View style={styles.urlRow}>
-            <Input
-              placeholder="https://example.com/image.jpg"
-              value={newImageUrl}
-              onChangeText={setNewImageUrl}
-              //onPress={pickImage}
-              style={{ flex: 1 }}
-              autoCapitalize="none"
-            />
-            <Button
-              onPress={() => {
-                const url = newImageUrl.trim();
-                if (!url) return;
-                setFormData({ ...formData, images: [...formData.images, url] });
-                setNewImageUrl('');
-              }}
-            >
-              추가
-            </Button>
-          </View>
-
-          {formData.images.map((url, idx) => (
-            <View key={`${url}-${idx}`} style={styles.urlItem}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ flex: 1, marginRight: 8 }} numberOfLines={1}>{url}</Text>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() =>
-                    setFormData({
-                      ...formData,
-                      images: formData.images.filter((_, i) => i !== idx),
-                    })
-                  }
+          <Text style={styles.label}>이미지 업로드</Text>
+          <Button onPress={pickImage}>
+            <Text>이미지 선택</Text>
+          </Button>
+          <ScrollView horizontal style={{ flexDirection: 'row', marginTop: 10 }}>
+            {selectedImages.map((image, index) => (
+              <View key={index} style={{ position: 'relative', marginRight: 10 }}>
+                <Image source={{ uri: image.uri }} style={{ width: 100, height: 100 }} />
+                <TouchableOpacity
+                  onPress={() => removeImage(index)}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    borderRadius: 12,
+                    padding: 2,
+                  }}
                 >
-                  삭제
-                </Button>
-              </View>
+                  <Ionicons name="close-circle" size={20} color="white" />
+                </TouchableOpacity>
             </View>
           ))}
+          </ScrollView>
         </View>
       </View>
     </View>
@@ -815,7 +833,7 @@ const renderStep4 = () => (
                 이전
               </Button>
             )}
-            <Button onPress={nextStep} disabled={!isStepValid()} style={step > 1 ? styles.buttonFlex : undefined}>
+            <Button onPress={nextStep} disabled={step !== totalSteps && !isStepValid()} style={step > 1 ? styles.buttonFlex : undefined}>
               {step === totalSteps ? '완료' : '다음'}
             </Button>
           </View>
