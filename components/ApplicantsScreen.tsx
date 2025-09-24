@@ -27,9 +27,10 @@ interface ApplicantsScreenProps {
 /** 백엔드 응답 스키마 */
 interface Applicant {
   memberName : string;
+  publicProfileId : number;
   birthDate: string;
   gender: string;
-  status: MatchStatus;
+  matchStatus: MatchStatus;
   applyId : number
 }
 
@@ -72,11 +73,13 @@ export default function ApplicantsScreen({
   const getStatusText = (status: MatchStatus) => {
     switch (status) {
       case MatchStatus.OnWait:
-        return '검토중';
+        return '승인 전';
       case MatchStatus.Matching:
-        return '승인됨';
+        return '매칭중';
       case MatchStatus.Rejected:
         return '거절됨';
+      case MatchStatus.Matched:
+        return '매칭 완료'
       default:
         return '알 수 없음';
     }
@@ -97,12 +100,12 @@ const filteredApplicants = useMemo(() => {
   const list = Array.isArray(applicants) ? applicants : [];   // ✅ 안전 보정
   return selectedFilter === 'all'
     ? list
-    : list.filter(a => a.status === selectedFilter);
+    : list.filter(a => a.matchStatus === selectedFilter);
 }, [applicants, selectedFilter]);
 
   const counts = useMemo(() => {
     const list = Array.isArray(applicants) ? applicants : [];   //  안전 보정을 위한 코드 NPE 주의 
-    const by = (s: MatchStatus) => list.filter(a => a.status === s).length;
+    const by = (s: MatchStatus) => list.filter(a => a.matchStatus === s).length;
 
     return {
       total: list.length,
@@ -162,18 +165,18 @@ const filteredApplicants = useMemo(() => {
     }
   }, [fetchApplicants]);
 
-  const acceptApplicant = async (id: number) => {
+  const acceptApplicant = async (id: number, isAccept : boolean) => {
   try {
     const token = await getAccessToken().catch(() => null);
 
     const res = await api.post(
-      `/apply/accept/${id}`,
-      postId, 
+      `/apply/accept/${id}`, {isAccept : isAccept},
       {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       }
     );
-    console.log(res.data.data);
+    
+    console.log(res.data?? res.data.data);
     return res.data.data; // 필요 시 res.data.data 반환
   } catch (e: any) {
     // 에러 핸들링(선택)
@@ -183,14 +186,28 @@ const filteredApplicants = useMemo(() => {
 
   // 로컬 상태 변경(승인/거절) — 서버 반영은 필요 시 추가
   const handleAccept = (applicantId: number) => {
-    acceptApplicant(applicantId);
+    acceptApplicant(applicantId, true);
+    console.log("승인 버튼 누름");
     setApplicants((prev) => prev.map((a) => (a.applyId === applicantId ? { ...a, status: MatchStatus.Matching } : a)));
     
   };
 
-  const handleReject = (applicantId: number) => {
-    setApplicants((prev) => prev.map((a) => (a.applyId === applicantId ? { ...a, status: MatchStatus.Rejected } : a)));
-  };
+  const handleReject = async(applicantId: number, isAccept : boolean) => {
+    try {
+      const token = await getAccessToken().catch(() => null);
+
+      const res = await api.post(
+        `/apply/accept/${applicantId}`, {isAccept : isAccept},
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      );
+      
+      console.log(res.data?? res.data.data);
+    } catch {
+
+      }
+    }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
@@ -298,7 +315,7 @@ const filteredApplicants = useMemo(() => {
                         <View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                             <Text style={{ fontWeight: '600' }}>{applicant.memberName}</Text>
-                            <Badge>{getStatusText(applicant.status)}</Badge>
+                            <Badge>{getStatusText(applicant.matchStatus)}</Badge>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                             <Text style={{ fontSize: 14, color: '#6b7280' }}>
@@ -309,7 +326,7 @@ const filteredApplicants = useMemo(() => {
                         
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        {applicant.status === MatchStatus.OnWait && (
+                        {applicant.matchStatus === MatchStatus.OnWait && (
                           <>
                             <Button
                               onPress={() => handleAccept(applicant.applyId)}
@@ -319,7 +336,7 @@ const filteredApplicants = useMemo(() => {
                             </Button>
                             <Button
                               variant="outline"
-                              onPress={() => handleReject(applicant.applyId)}
+                              onPress={() => handleReject(applicant.applyId, false)}
                               style={{ borderColor: '#dc2626', paddingHorizontal: 16, paddingVertical: 8 }}
                             >
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
