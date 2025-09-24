@@ -996,14 +996,15 @@ export default function MapScreen({
     loadRecruitsRef.current = () => {
       const hasFilters = Object.keys(appliedFilters).length > 0;
       const center = initialCenterRef.current;
-      if (hasFilters) {
-        const filterParams = buildFilterParams();
-        fetchFiltered(filterParams);
-      } else {
-        fetchFiltered();
-      }
+      // if (hasFilters) {
+      //   const filterParams = buildFilterParams();
+      //   fetchFiltered(filterParams);
+      // } else {
+      //   fetchFiltered();
+      // }
     };
-  }, [appliedFilters, buildFilterParams, fetchFiltered]);
+  }, []);
+  //appliedFilters, buildFilterParams, fetchFiltered
 
   // 최초 마운트: 위치 먼저
   useEffect(() => {
