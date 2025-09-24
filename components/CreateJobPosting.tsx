@@ -126,11 +126,33 @@ export default function CreateJobPosting({
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      quality: 1,
+      quality: 0.8, // 품질을 낮춰서 HEIC 호환성 개선
+      allowsEditing: false,
+      // HEIC 파일을 JPEG로 강제 변환
+      exif: false,
+      base64: false,
     });
 
     if (!result.canceled) {
-      setSelectedImages([...selectedImages, ...result.assets]);
+      // HEIC 파일 필터링 및 경고
+      const validAssets = result.assets.filter(asset => {
+        const isHeic = asset.mimeType === 'image/heic' || asset.uri.toLowerCase().includes('.heic');
+        if (isHeic) {
+          console.log('HEIC 파일 감지, 건너뛰기:', asset.fileName);
+          return false; // HEIC 파일은 제외
+        }
+        return true;
+      });
+
+      if (validAssets.length !== result.assets.length) {
+        Alert.alert(
+          '알림', 
+          'HEIC 형식의 이미지는 현재 지원하지 않습니다.\n설정에서 카메라 형식을 "호환성 우선"으로 변경해주세요.',
+          [{ text: '확인' }]
+        );
+      }
+
+      setSelectedImages([...selectedImages, ...validAssets]);
     }
   };
 
@@ -298,8 +320,11 @@ const handleAddressSelect = (addr: AddressResult) => {
       selectedImages.forEach((image, index) => {
         console.log(`Adding image ${index}:`, image.uri, 'mimeType:', image.mimeType);
         
-        // Ensure proper MIME type
+        // Ensure proper MIME type and convert HEIC to JPEG
         let mimeType = image.mimeType || 'image/jpeg';
+        if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+          mimeType = 'image/jpeg';
+        }
         if (mimeType === 'application/octet-stream' || !mimeType.startsWith('image/')) {
           mimeType = image.uri.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
         }
@@ -307,7 +332,7 @@ const handleAddressSelect = (addr: AddressResult) => {
         const file = {
           uri: Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri,
           type: mimeType,
-          name: image.fileName || `image-${Date.now()}-${index}.${mimeType.includes('png') ? 'png' : 'jpg'}`,
+          name: image.fileName || `image-${Date.now()}-${index}.${mimeType === 'image/png' ? 'png' : 'jpg'}`,
         };
         console.log('File object:', file);
         form.append('images', file as any);

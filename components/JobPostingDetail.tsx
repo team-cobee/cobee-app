@@ -337,11 +337,14 @@ const getAllComments = async (postId : number) => {
     (async () => {
       try {
         const res = await api.get(`/recruits/${jobId}`);
+        console.log('API Response:', JSON.stringify(res.data, null, 2));
         if (cancelled) return;
         const data = res.data?.data;
+        console.log('Parsed data:', JSON.stringify(data, null, 2));
         setRecruit(data ?? null);
         setComments(Array.isArray(data?.comments) ? data.comments : []);
       } catch (e) {
+        console.error('Error fetching recruit:', e);
         if (!cancelled) Alert.alert("에러", "구인글을 불러오지 못했습니다");
       }
     })();
@@ -511,19 +514,24 @@ const getAllComments = async (postId : number) => {
 
       <ScrollView contentContainerStyle={[styles.scrollContentContainer, {flexGrow: 1}]}>
         {/* 방 이미지 캐러셀 */}
-        {/* {recruit.hasRoom === true && recruit.imgUrl.length > 0 && (
+        {recruit.imgUrl && recruit.imgUrl.length > 0 && (
           <View style={{ width: screenWidth, height: screenWidth * 0.5625 }}>
-            {<Image
-              source={{ uri: recruit.imgUrl[currentImageIndex] }}
+            <Image
+              source={{ uri: `https://storage.googleapis.com/${recruit.imgUrl[currentImageIndex]}` }}
               style={styles.carouselImage}
               resizeMode="cover"
-            /> }
+              onError={(error) => console.log('Image load error:', error.nativeEvent.error)}
+            />
             {recruit.imgUrl.length > 1 && (
               <>
-                {<TouchableOpacity onPress={prevImage} style={[styles.carouselNav, styles.carouselNavLeft]}>
+                <TouchableOpacity onPress={() => {
+                  setCurrentImageIndex(prev => prev === 0 ? recruit.imgUrl!.length - 1 : prev - 1);
+                }} style={[styles.carouselNav, styles.carouselNavLeft]}>
                   <Text style={styles.carouselNavText}>{'<'}</Text>
-                </TouchableOpacity>}
-                <TouchableOpacity onPress={nextImage} style={[styles.carouselNav, styles.carouselNavRight]}>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                  setCurrentImageIndex(prev => prev === recruit.imgUrl!.length - 1 ? 0 : prev + 1);
+                }} style={[styles.carouselNav, styles.carouselNavRight]}>
                   <Text style={styles.carouselNavText}>{'>'}</Text>
                 </TouchableOpacity>
                 <View style={styles.carouselIndicator}>
@@ -534,7 +542,7 @@ const getAllComments = async (postId : number) => {
               </>
             )}
           </View>
-        )} */}
+        )}
 
         <View style={styles.contentPadding}>
           {/* 기본 정보 */}
