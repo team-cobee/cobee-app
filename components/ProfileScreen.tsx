@@ -209,7 +209,7 @@ export default function ProfileScreen({
     onLogout?.();
   };
 
-  // 회원 탈퇴 함수
+  //회원 탈퇴 함수
   const withDrawMember = async () => {
     try {
       const res = await api.delete('/auth/withdraw', {
@@ -243,6 +243,39 @@ export default function ProfileScreen({
       console.log("회원 로그이웃 실패");
     }
   }
+
+
+//   const withDrawMember = async () => {
+//   try {
+//     //const headers = await authHeader();
+//     const res = await api.delete('/auth/withdraw', { 
+//         headers: {
+//           Authorization: `Bearer ${getAccessToken}`, 
+//           'Content-Type': 'application/json'}}
+//         );
+//     clearTokens();
+//     console.log('회원 탈퇴 성공:', res.data);
+//     // TODO: onNavigateToLogin?.(); 등 후처리
+//   } catch (error) {
+//     console.error('회원 탈퇴 실패:', error);
+//     Alert.alert('탈퇴 실패', '연관 데이터 정리 후 다시 시도해 주세요.'); // 서버가 409 주면 그 메시지 표시 추천
+//   }
+// };
+
+// const logoutMember = async () => {
+//   try {
+//     //const headers = await authHeader();
+//     await api.post('/auth/logout', {}, { 
+//         headers: {
+//           Authorization: `Bearer ${getAccessToken}`, 
+//           'Content-Type': 'application/json'}}
+//         );
+//     clearTokens();
+//     console.log('회원 로그아웃 완료');
+//   } catch {
+//     console.log('회원 로그아웃 실패');
+//   }
+// };
 
 
   interface user { // api 명세에 맞게 수정

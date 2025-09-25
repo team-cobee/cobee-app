@@ -227,6 +227,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/api/api';
+import { getAccessToken } from '@/api/tokenStorage';
 import { Card, CardContent } from './ui/card';
 import { AlarmSourceType, AlarmType } from '@/types/enums';
 
@@ -249,8 +250,16 @@ interface NotificationResponse {
   body?: string;
 }
 
+interface chatRoomInfo {
+  id: number,
+  name: string,
+  maxMemberCount: number,
+  currentUserCount: number
+}
+
 export default function NotificationScreen({ onBack, onNavigateToJob, onNavigateToSettings }: NotificationScreenProps) {
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const [chatRoomInfo, setChatRoomInfo]= useState<chatRoomInfo>();
 
   // ✅ API에서 알림 불러오기
   useEffect(() => {
@@ -267,6 +276,21 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
     fetchAlarms();
   }, []);
 
+  const handleAcceptChat = async(roomId : number) => {
+    try {
+      const token = await getAccessToken().catch(() => null);  
+      const res = await api.post(`/chat/rooms/join/${roomId}`,{
+        headers : token ? { Authorization: `Bearer ${token}` } : {}
+      }
+      );
+      setChatRoomInfo(res.data ?? res.data.data);
+      Alert.alert("채팅방에 조인됐습니다!");
+      console.log(res.data);
+    } catch {
+      console.log("채팅방 수락 불가능");
+    }
+  }
+
   const markAllAsRead = () => {
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
     Alert.alert('완료', '모든 알림을 읽음으로 표시했습니다');
@@ -278,18 +302,18 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
     ));
   };
 
-  const handleAcceptChat = async (alarm: NotificationResponse) => {
-    try {
-      // TODO: 백엔드 수락 API 엔드포인트 맞게 수정
-      await api.post(`/chat/rooms/accept/${alarm.alarmId}`);
-      Alert.alert('성공', '채팅방 초대를 수락했습니다.');
-      setNotifications(prev => prev.map(n =>
-        n.noticeId === alarm.noticeId ? { ...n, isRead: true } : n
-      ));
-    } catch (e) {
-      Alert.alert('오류', '채팅방 수락에 실패했습니다.');
-    }
-  };
+  // const handleAcceptChat = async (roomId : numebr) => {
+  //   try {
+  //     // TODO: 백엔드 수락 API 엔드포인트 맞게 수정
+  //     await api.post(`/chat/rooms/accept/${roomId}`);
+  //     Alert.alert('성공', '채팅방 초대를 수락했습니다.');
+  //     setNotifications(prev => prev.map(n =>
+  //       n.noticeId === notifications.noticeId ? { ...n, isRead: true } : n
+  //     ));
+  //   } catch (e) {
+  //     Alert.alert('오류', '채팅방 수락에 실패했습니다.');
+  //   }
+  // };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
@@ -330,7 +354,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
                       {notification.body || '채팅방 초대가 도착했습니다. 수락하시겠습니까?'}
                     </Text>
                     <TouchableOpacity
-                      onPress={() => handleAcceptChat(notification)}
+                      onPress={() => handleAcceptChat(notification.sourceId)}
                       style={{
                         backgroundColor: '#F7B32B',
                         paddingVertical: 10,

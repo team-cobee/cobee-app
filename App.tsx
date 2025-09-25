@@ -155,9 +155,11 @@ export default function App() {
       case 'PublicProfileView':
         return (
           <PublicProfileViewScreen
-            userId={params?.userId || '1'}
-            onBack={goBack}
-            onNavigateToChat={() => setCurrentScreen('chat')}
+            userId={params?.userId} // 없으면 본인 프로필, 있으면 해당 사용자 프로필
+      onBack={goBack}
+      onEdit={() => setCurrentScreen('ProfileEdit')} // 본인 프로필 수정
+      onNavigateToChat={() => setCurrentScreen('chat')} // 타인과 채팅
+            //onNavigateToProfile={(userId: number) => navigate('PublicProfileView', { userId })}
           />
         );
 

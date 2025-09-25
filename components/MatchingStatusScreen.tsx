@@ -124,7 +124,7 @@ export default function MatchingStatusScreen({ onBack, onNavigateToJob }: Matchi
 
   const tabs = [
     { id: 'applied', label: '지원한 구인글', count: myOnWaitPost?.length },
-    { id: 'matched', label: '매칭 완료', count: myOnMatchingPost?.length },
+    { id: 'matched', label: '매칭 완료', count: myMatchedPost?.length },
     { id: 'invited', label: '초대받은 구인글', count: myMatchedPost?.length }
   ];
 

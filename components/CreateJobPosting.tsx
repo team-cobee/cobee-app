@@ -638,94 +638,6 @@ const handleAddressSelect = (addr: AddressResult) => {
   );
 
   /** ─── Step 4: 주소/좌표 + 이미지 추가 ─── */
-  // const renderStep4 = () => (
-  //   <View style={styles.stepContainer}>
-  //     <Text style={styles.stepTitle}>상세 설명</Text>
-  //       <Text style={styles.stepSubtitle}></Text>
-  //     <View style={styles.formSection}>
-  //       {formData.hasRoom === 'has' && (
-  //         <>
-  //           <View style={styles.fieldContainer}>
-  //             <Text style={styles.label}>주소</Text>
-  //             <Input
-  //               placeholder="방 주소를 입력해주세요."
-  //               value={formData.address}
-  //               onChangeText={(t) => {setSelectedAddress}}
-  //               //onChangeText={(t) => setFormData({ ...formData, address: t })}
-  //             />
-  //             <TouchableOpacity onPress={() => setOpen(true)}>
-  //               <Text>검색</Text>
-  //             </TouchableOpacity>
-  //           </View>
-  //         </>
-  //       )} : {<View style={styles.fieldContainer}>
-  //             <Text style={styles.label}>주소 정보</Text>
-  //             <Input
-  //               placeholder="ex) 서울시 강남구 역삼동"
-  //               value={formData.address}
-  //               onChangeText={(t) => setFormData({ ...formData, address: t })}
-  //             />
-  //           </View>}
-
-
-  //           <View style={styles.formSection}>
-  //       <View style={styles.fieldContainer}>
-  //         <Text style={styles.label}>이미지 URL 추가</Text>
-  //         <View style={styles.urlRow}>
-  //           <Input
-  //             placeholder="https://example.com/image.jpg"
-  //             value={newImageUrl}
-  //             onChangeText={setNewImageUrl}
-  //             style={{ flex: 1 }}
-  //             autoCapitalize="none"
-  //           />
-  //           <Button
-  //             onPress={() => {
-  //               const url = newImageUrl.trim();
-  //               if (!url) return;
-  //               setFormData({ ...formData, images: [...formData.images, url] });
-  //               setNewImageUrl('');
-  //             }}
-  //           >
-  //             추가
-  //           </Button>
-  //         </View>
-
-  //         {formData.images.map((url, idx) => (
-  //           <View key={`${url}-${idx}`} style={styles.urlItem}>
-  //             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-  //               <Text style={{ flex: 1, marginRight: 8 }} numberOfLines={1}>{url}</Text>
-  //               <Button
-  //                 variant="outline"
-  //                 size="sm"
-  //                 onPress={() =>
-  //                   setFormData({
-  //                     ...formData,
-  //                     images: formData.images.filter((_, i) => i !== idx),
-  //                   })
-  //                 }
-  //               >
-  //                 삭제
-  //               </Button>
-  //             </View>
-  //           </View>
-  //         ))}
-  //       </View>
-  //     </View>
-  //     </View>
-
-  //     <AddressSearchModal
-  //       visible={open}
-  //       onClose={() => setOpen(false)}
-  //       onSelect={(addr) => {
-  //         setOpen(false);
-  //         setSelectedAddress(addr.fullAddress); // 여기서 네가 원하는 필드 골라서 저장하면 됨
-  //         // addr.postalCode / addr.roadAddress / addr.jibunAddress / addr.sido / ...
-  //       }}
-  //     />
-  //   </View>
-  // );
-  /** ─── Step 4: 주소/좌표 + 이미지 추가 ─── */
 const renderStep4 = () => (
   <View style={styles.stepContainer}>
     <View style={styles.stepHeader}>
@@ -740,11 +652,11 @@ const renderStep4 = () => (
         // ✅ 방이 있는 경우: 주소 검색 버튼 + 입력
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>주소</Text>
-          <Input
+          {/* <Input
             placeholder="방 주소를 입력하거나 검색 버튼으로 선택"
             value={formData.address}
             onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
-          />
+          /> */}
           <TouchableOpacity
           onPress={() => setShowAddressModal(true)}
           style={{
@@ -768,30 +680,35 @@ const renderStep4 = () => (
         // ✅ 함께 방을 찾는 경우: 자유 입력
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>주소</Text>
-          <Input
+          {/* <Input
             placeholder="방 주소를 입력하거나 검색 버튼으로 선택"
             value={formData.address}
             onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
-          />
-          <TouchableOpacity 
-            onPress={() => setShowAddressModal(true)} 
-            style={{ 
-              backgroundColor: '#111827', 
-              borderRadius: 8, 
-              height: 44, 
-              paddingHorizontal: 16, 
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: 8 
-            }}
-          >
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>검색</Text>
-          </TouchableOpacity>
+          /> */}
+          <TouchableOpacity
+          onPress={() => setShowAddressModal(true)}
+          style={{
+            borderWidth: 1,
+            borderColor: '#d1d5db',
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16, color: (selectedAddress || formData.address) ? '#000' : '#9ca3af' }}>
+            {selectedAddress || formData.address || '주소를 검색해주세요'}
+          </Text>
+          <Ionicons name="search" size={16} color="#9ca3af" />
+        </TouchableOpacity>
         </View>
       )}
+    </View>
 
-      {/* 이미지 업로드 섹션 */}
-      <View style={styles.formSection}>
+    {/* 이미지 업로드 부분*/}
+    <View style={styles.formSection}>
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>이미지 업로드</Text>
           <Button onPress={pickImage}>
@@ -819,7 +736,6 @@ const renderStep4 = () => (
           </ScrollView>
         </View>
       </View>
-    </View>
 
     {/* ✅ 주소 선택 모달 - 선택 시 formData.address도 업데이트 */}
     <AddressSearchModal

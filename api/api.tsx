@@ -20,6 +20,11 @@ import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from './toke
 export const BASE_URL = 'https://cobee-server-108875465480.asia-northeast3.run.app';
 export const OCR_URL = "https://qwen-vl-service-108875465480.asia-southeast1.run.app";
 
+export async function authHeader() {
+  const token = await getAccessToken().catch(() => null);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10_000,

@@ -150,12 +150,6 @@ const filteredApplicants = useMemo(() => {
     }
   }, [postId]);
 
-
-  useEffect(() => {
-    fetchApplicants();
-    getPostTitle();
-  }, [fetchApplicants]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -185,12 +179,17 @@ const filteredApplicants = useMemo(() => {
   };
 
   // 로컬 상태 변경(승인/거절) — 서버 반영은 필요 시 추가
-  const handleAccept = (applicantId: number) => {
-    acceptApplicant(applicantId, true);
-    console.log("승인 버튼 누름");
-    setApplicants((prev) => prev.map((a) => (a.applyId === applicantId ? { ...a, status: MatchStatus.Matching } : a)));
-    
-  };
+  const handleAccept = useCallback(async (applicantId: number) => {
+  try {
+    await acceptApplicant(applicantId, true); // ← 반드시 await
+    console.log("승인 성공");
+    await fetchApplicants();
+  } catch (e: any) {
+    //setApplicants(prev => prev.map(a => a.applyId === applicantId ? { ...a, matchStatus: MatchStatus.OnWait } : a));
+    Alert.alert('승인 실패', e?.message ?? '네트워크 오류가 발생했습니다.');
+  }
+}, [acceptApplicant, fetchApplicants]);
+
 
   const handleReject = async(applicantId: number, isAccept : boolean) => {
     try {
@@ -208,6 +207,11 @@ const filteredApplicants = useMemo(() => {
 
       }
     }
+
+        useEffect(() => {
+      fetchApplicants();
+      getPostTitle();
+  }, [fetchApplicants]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
@@ -349,7 +353,7 @@ const filteredApplicants = useMemo(() => {
 
                         <Button
                           variant="outline"
-                          onPress={() => onNavigateToProfile?.(applicant.applyId)}
+                          onPress={() => onNavigateToProfile?.(applicant.publicProfileId)}
                           style={{ paddingHorizontal: 16, paddingVertical: 8 }}
                         >
                           <Text style={{ fontSize: 14 }}>👤 프로필 보기</Text>
