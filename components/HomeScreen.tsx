@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gender, Lifestyle, Snoring, Smoking, Personality, Pets, SocialType } from '@/types/enums';
 import { Dimensions } from 'react-native';
+import { AxiosResponse } from "axios";
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import {
   View,
@@ -10,6 +11,7 @@ import {
   Image,
   StyleSheet,
   Alert,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/api/api';
@@ -41,6 +43,38 @@ interface RecruitResponse{
   authorGender : Gender
 }
 
+// API 응답 원형 타입
+interface ApiRecommendationResponse {
+  member_id: number;
+  recommendations: ApiRecommendationItem[];
+  count: number;
+  source: string;
+  timestamp: string;
+};
+
+interface ApiRecommendationItem {
+  recruit_post_id: number;
+  score: number;
+  post_details: {
+    title: string | null;
+    address: string;
+    has_room: boolean;
+    monthly_cost_min: number;
+    monthly_cost_max: number;
+  };
+  created_at: string;
+};
+
+// 당신이 쓰고 싶은 프론트용 타입
+interface RecommendPost {
+  postId: number;
+  title: string | null;                
+  address: string;
+  hasRoom: boolean;                   
+  monthlyCostMin: number;              
+  monthlyCostMax: number;             
+}
+
 interface user { // api 명세에 맞게 수정
     id : number;
     name : string;
@@ -61,41 +95,81 @@ export default function HomeScreen({
   const [bookmarkedJobs, setBookmarkedJobs] = useState<Set<string>>(new Set());
   const [recruits, setRecruits] = useState<RecruitResponse[] | null>([]);
   const [userInfo, setUserInfo] = useState<user | null>(null);
+  const [recommend, setRecommend] = useState<RecommendPost[] | null>([]);
+
+  // useEffect(() => {
+  //   const fetchRecruits = async () => {
+  //     try {
+  //       const res = await api.get('/recruits'); // @GetMapping("")
+  //       setRecruits(res.data?.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
+  //     } catch (error) {
+  //       console.error(error);
+  //       Alert.alert('에러', '구인글을 불러오지 못했습니다');
+  //     }
+  //   };
+
+  //   fetchRecruits();
+  // }, []);
+
+
+
+  const fetchRecommendations = async(userId: number) => {
+    // 백엔드가 member_id를 **query**로 받는다면:
+    try {
+      const res = await api.get(`http://34.64.191.177:8000/recommend/${userId}?limit=5`);
+      const items = res.data?.recommendations ?? [];
+
+    // snake_case → camelCase & 평탄화
+      const mapped: RecommendPost[] = items.map((it : ApiRecommendationItem) => ({
+      postId: it.recruit_post_id,
+      title: it.post_details.title ?? null,
+      address: it.post_details.address,
+      hasRoom: it.post_details.has_room,
+      monthlyCostMin: it.post_details.monthly_cost_min,
+      monthlyCostMax: it.post_details.monthly_cost_max,
+    }));
+    console.log("------------1")
+    console.log(mapped);
+    setRecommend(mapped);
+
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const msg = err?.response?.data?.detail || err?.message || "요청 실패";
+    console.warn(`[fetchRecommendations] ${status ?? ""} ${msg}`);
+    throw err;
+  }
+}
 
   useEffect(() => {
-    const fetchRecruits = async () => {
-      try {
-        const res = await api.get('/recruits'); // @GetMapping("")
-        setRecruits(res.data?.data); // ApiResponse.success() 안에 data로 내려오는 구조라 가정
-      } catch (error) {
-        console.error(error);
-        Alert.alert('에러', '구인글을 불러오지 못했습니다');
-      }
-    };
-
-    fetchRecruits();
-  }, []);
+  let cancelled = false;
+  (async () => {
+    try {
+      const res = await api.get('/auth');
+      if (!cancelled) setUserInfo(res.data?.data);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
+    }
+  })();
+  return () => { cancelled = true; };
+}, []);
 
   useEffect(() => {
-    let cancelled = false;
-  
-    const fetchMyInfo = async () => {
-      try {
-        const res = await api.get('/auth'); 
-        if (!cancelled) setUserInfo(res.data?.data);
-      } catch (error) {
-        console.error(error);
-        Alert.alert('에러', '사용자 정보를 불러오지 못했습니다.');
-      }
-    };
-    fetchMyInfo();          
-  
-    return () => {        
-      cancelled = true;
-    };
-    }, []); 
+    if (!userInfo?.id) return;           
+    fetchRecommendations(userInfo.id);
+  }, [userInfo?.id]);
 
   
+  const openLink = async (url?: string) => {
+  if (!url) return;
+  const can = await Linking.canOpenURL(url);
+  if (can) {
+    await Linking.openURL(url);
+  } else {
+    console.warn(`Cannot open URL: ${url}`);
+  }
+};
+
   const toggleBookmark = (jobId: string) => {
     const newBookmarked = new Set(bookmarkedJobs);
     if (newBookmarked.has(jobId)) {
@@ -111,13 +185,15 @@ export default function HomeScreen({
   const newsList = [
     {
       id: 1,
-      title: '2024 전세 시장 동향 - 청년층 주거 트렌드 분석',
-      date: '2024.08.17',
+      title: '청약 접수 43%가 서울…쏠림 최고조',
+      date: '2025.09.25',
+      url : 'https://n.news.naver.com/mnews/article/032/0003399015'
     },
     {
       id: 2,
-      title: '2024 전세 시장 동향 - 청년층 주거 트렌드 분석',
-      date: '2024.08.17',
+      title: '“젊은 부부∙청년들 이제 어쩌나”...공급부족에 전세난 우려 커지는 마포구',
+      date: '2025.08.17',
+      url : 'https://www.mk.co.kr/news/realestate/11428310'
     },
   ];
 
@@ -147,7 +223,7 @@ export default function HomeScreen({
       {/* 액션 버튼 */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          onPress={() => onNavigateToBookmarks?.()}
+          //onPress={() => onNavigateToBookmarks?.()}
           style={[styles.actionButton, styles.secondaryButton, {flexDirection: 'column'}]}
         >
           <Ionicons name="bookmark-outline" size={20} color="#000" /> 
@@ -162,8 +238,7 @@ export default function HomeScreen({
         </TouchableOpacity>
       </View>
 
-      {/* 추천 구인글 */}
-      {/* 추천 구인글 */}
+
 <View style={styles.section}>
   <Text style={styles.sectionTitle}>추천 구인글</Text>
 
@@ -174,7 +249,7 @@ export default function HomeScreen({
     decelerationRate="fast"
     snapToAlignment="center" // 카드가 중앙에 딱 맞게
   >
-    {recruits?.map((job, idx) => {
+    {recommend?.map((job, idx) => {
   const key = `recruit-${job.postId ?? 'noid'}-${idx}`; // ← 고유 key 생성 (id 중복 대비)
   return (
     <TouchableOpacity
@@ -188,29 +263,6 @@ export default function HomeScreen({
         <Text style={styles.jobPrice}>
           월 {job.monthlyCostMin}~{job.monthlyCostMax}만원
         </Text>
-
-        <View style={styles.tagsContainer}>
-          {job.isSmoking && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>흡연: {job.isSmoking}</Text>
-            </View>
-          )}
-          {job.isPetsAllowed && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>반려동물: {job.isPetsAllowed}</Text>
-            </View>
-          )}
-          {job.personality && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>성격: {job.personality}</Text>
-            </View>
-          )}
-          {job.lifestyle && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>라이프스타일: {job.lifestyle}</Text>
-            </View>
-          )}
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -219,15 +271,27 @@ export default function HomeScreen({
 </View>
 
 
-      {/* 최신 소식 */}
+    {/* 최신 소식 */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>최근 소식</Text>
-        {newsList.map((news, idx) => (
-          <View key={`news-${news.id}-${idx}`} style={styles.newsItem}>
-            <Text style={styles.newsText}>{news.title}</Text>
-            <Text style={styles.newsDate}>{news.date}</Text>
-          </View>
-        ))}
+
+        {newsList.map((news, idx) => {
+          const clickable = !!news.url;
+          return (
+            <TouchableOpacity
+              key={`news-${news.id}-${idx}`}
+              style={styles.newsItem}
+              activeOpacity={clickable ? 0.6 : 1}
+              onPress={() => openLink(news.url)}
+              disabled={!clickable}
+            >
+              <Text style={[styles.newsText]}>
+                {news.title}
+              </Text>
+              <Text style={styles.newsDate}>{news.date}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </ScrollView>
   );
