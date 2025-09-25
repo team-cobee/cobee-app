@@ -158,21 +158,21 @@ export default function LoginScreen({ onSkip, onSignup }: LoginScreenProps) {
           <Image source={require('../assets/images/kakao-login.png')} style={styles.kakaoLoginButton} />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={openGoogle} activeOpacity={0.8}>
+        {/* <TouchableOpacity onPress={openGoogle} activeOpacity={0.8}>
           <Image source={require('../assets/images/google-login.png')} style={styles.googleLoginButton} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
-        <View style={styles.skipContainer}>
+        {/* <View style={styles.skipContainer}>
           <TouchableOpacity style={styles.skipButton} onPress={handleSignupBtn}>
             <Text style={styles.skipText}>회원가입하기</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
-        {onSkip && (
+        {/* {onSkip && (
           <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
             <Text style={styles.skipText}>다음에 하기</Text>
           </TouchableOpacity>
-        )}
+        )} */}
       </View>
 
       {/* 풀스크린 WebView */}
