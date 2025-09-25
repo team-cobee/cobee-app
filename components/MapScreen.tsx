@@ -17,6 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Slider } from "./ui/slider";
 import { Gender, Lifestyle, Personality, Pets, RecruitStatus, Smoking, Snoring } from "@/types/enums";
 
+
+
 type FilterDto = {
   latitude?: number;
   longitude?: number;
@@ -111,14 +113,16 @@ export default function MapScreen({
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false); // 최초 로드 완료 여부
 
   const [hasMovedFromInitialLocation, setHasMovedFromInitialLocation] = useState(false);
+  const mapRef = useRef<MapView | null>(null);
 
   // Region은 latitude/longitude 키를 가져야 함!
-  const [region, setRegion] = useState<Region>({
-    latitude: 37.5665, // 임시(서울) - 권한 거부/실패 대비 기본값
-    longitude: 126.9780,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
+  const [mapInitialRegion, setMapInitialRegion] = useState<Region>({
+  latitude: 37.5665,
+  longitude: 126.9780,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
+});
+
 
   // === 필터 상태 ===
   const [appliedFilters, setAppliedFilters] = useState<{
@@ -147,6 +151,8 @@ export default function MapScreen({
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  //const mapRef = useRef<MapView | null>(null);
+  const hasAutoCenteredRef = useRef(false);
 
   // ====== 전체 데이터 최초 1회 로드 ======
   const loadAllRecruits = useCallback(async () => {
@@ -194,34 +200,38 @@ export default function MapScreen({
 
   // ====== 현재 위치 1회 초기화 ======
   const initMyPosition = useCallback(async () => {
-    try {
-      const { latitude, longitude } = await getCurrentLatLngOnce();
-      setHasLocationPermission(true);
-      setCurrentLatitude(latitude);
-      setCurrentLongitude(longitude);
+  try {
+    const { latitude, longitude } = await getCurrentLatLngOnce();
+    setHasLocationPermission(true);
+    setCurrentLatitude(latitude);
+    setCurrentLongitude(longitude);
 
-      // 지도 중심/필터 중심 동기화
-      // 지도 중심/필터 중심 동기화
-      setRegion((prev) => ({
-        ...prev,
+    if (!hasAutoCenteredRef.current) {
+      setMapInitialRegion({
         latitude,
         longitude,
-        latitudeDelta: 0.018, // 2km 반경 (약 0.018도)
+        latitudeDelta: 0.018,
         longitudeDelta: 0.018,
-      }));
-      initialCenterRef.current = { lat: latitude, lng: longitude };
-      
-      // 위치 준비 후 전체 데이터 로드
-      await loadAllRecruits();
-    } catch (e: any) {
-      // 권한 거부/서비스 꺼짐/타임아웃 등
-      setHasLocationPermission(false);
-      setErrorMsg(e?.message || "현재 위치를 가져오지 못했습니다.");
-      // 기본 서울 좌표 유지
-      initialCenterRef.current = { lat: region.latitude, lng: region.longitude };
-      await loadAllRecruits();
+      });
+      hasAutoCenteredRef.current = true; // ✅ 이후 자동 센터링 금지
     }
-  }, [region.latitude, region.longitude, loadAllRecruits]);
+
+    await loadAllRecruits();
+  } catch (e: any) {
+    setHasLocationPermission(false);
+    setErrorMsg(e?.message || "현재 위치를 가져오지 못했습니다.");
+
+    if (!hasAutoCenteredRef.current) {
+      setMapInitialRegion((prev) => ({
+        ...prev,
+        // 기본 서울 좌표 유지
+      }));
+      hasAutoCenteredRef.current = true;
+    }
+    await loadAllRecruits();
+  }
+}, [loadAllRecruits]);
+
 
   // buildFilterParams: 위치가 준비된 뒤에만 center 사용
   const buildFilterParams = useCallback((): FilterDto => {
@@ -389,20 +399,21 @@ export default function MapScreen({
       zIndex: 10,
     }}
     onPress={() => {
-      if (currentLatitude !== null && currentLongitude !== null) {
-        setRegion({
-          latitude: currentLatitude,
-          longitude: currentLongitude,
-          latitudeDelta: 0.018,
-          longitudeDelta: 0.018,
-        });
-        setHasMovedFromInitialLocation(false);
-      }
-    }}
-  >
-    <Ionicons name="locate" size={24} color="#F7B32B" />
-  </TouchableOpacity>
-);
+          if (currentLatitude !== null && currentLongitude !== null) {
+            const target = {
+              latitude: currentLatitude,
+              longitude: currentLongitude,
+              latitudeDelta: 0.018,
+              longitudeDelta: 0.018,
+            };
+            mapRef.current?.animateToRegion(target, 350); // ✅ 버튼 눌렀을 때만 이동
+            //setHasMovedFromInitialLocation(false);
+          }
+        }}
+      >
+        <Ionicons name="locate" size={24} color="#F7B32B" />
+      </TouchableOpacity>
+  );
 
   const BottomSheetLike = ({
     visible,
@@ -612,22 +623,24 @@ export default function MapScreen({
       {/* 지도 */}
       <View style={{ flex: 1, position: "relative" }}>
         <MapView
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: sheetHeight }}
+          ref={mapRef}   // ← 추가
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
           provider={PROVIDER_GOOGLE}
-          region={region}
+          initialRegion={mapInitialRegion}
           onRegionChangeComplete={(newRegion) => {
-            setRegion(newRegion);
-            // 초기 위치에서 벗어났는지 확인
-          if (currentLatitude !== null && currentLongitude !== null) {
-            const distance = Math.abs(newRegion.latitude - currentLatitude) + Math.abs(newRegion.longitude - currentLongitude);
-            if (distance > 0.005) { // 임계값
-              setHasMovedFromInitialLocation(true);
+            // 현재 위치와의 거리 기준으로 버튼 표시/숨김을 결정
+            if (currentLatitude != null && currentLongitude != null) {
+              const dist =
+                Math.abs(newRegion.latitude - currentLatitude) +
+                Math.abs(newRegion.longitude - currentLongitude);
+              // 가까우면 숨기고, 멀어지면 보이게
+              setHasMovedFromInitialLocation(dist > 0.003);  // 임계값은 상황에 맞게 조절
             }
-          }
-        }}
+          }}
           showsUserLocation={hasLocationPermission}
           showsMyLocationButton={false}
         >
+
           {/* 마커들 */}
           {posts
             .filter((p) => typeof p.latitude === "number" && typeof p.longitude === "number")
@@ -743,7 +756,7 @@ export default function MapScreen({
           onValuesChange={(vals) => setTempRentRange([Math.round(vals[0]), Math.round(vals[1])])}
           min={5}
           max={200}
-          step={5}
+          step={10}
           allowOverlap={false}
           snapped
         />
