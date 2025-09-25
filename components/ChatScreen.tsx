@@ -1125,6 +1125,7 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
   const hasRoom = !!roomId;
   const [input, setInput] = useState<string>('');
   const [loginUser, setLoginUser] = useState<AuthMember | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
   
   const scrollRef = useRef<ScrollView>(null);
   const stompRef = useRef<Client | null>(null);
@@ -1143,7 +1144,9 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
 
   const getAllChatMessages = useCallback(async (currentRoomId: number) => {
     try {
+      console.log('Fetching chat history for room:', currentRoomId);
       const res = await api.get(`/chat/rooms/history/${currentRoomId}`);
+      console.log('Chat history response:', res.data);
       setMessages(res.data.data || []);
     } catch (e) {
       console.error("Failed to fetch chat history", e);
@@ -1154,6 +1157,7 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
   const getUserInfo = useCallback(async () => {
     try {
       const res = await api.get(`/auth`);
+      console.log('User info response:', res.data);
       setLoginUser(res.data.data);
     } catch (e) {
       console.error('getUserInfo error', e);
@@ -1163,6 +1167,7 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
   const getMyChatInfo = useCallback(async () => {
     try {
       const res = await api.get('/chat/rooms/my');
+      console.log('My chat info response:', res.data);
       if (res.data?.success && res.data?.data) {
         setChatRoomInfo(res.data.data);
         setRoomId(res.data.data.id);
@@ -1200,68 +1205,127 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
 
   useEffect(() => {
     if (!roomId || !loginUser?.id) {
+      console.log('No roomId or loginUser, disconnecting WebSocket');
       if (stompRef.current?.connected) {
         stompRef.current.deactivate();
       }
+      setIsConnected(false);
       return;
     }
 
+    console.log('Setting up WebSocket connection for room:', roomId, 'user:', loginUser.id);
     getAllChatMessages(roomId);
 
     const stomp = new Client({
-      debug: (s) => console.log('[stomp]', s),
+      debug: (s) => console.log('[STOMP]', s),
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
       webSocketFactory: () => new SockJS(`${BASE_URL}/ws-chat`),
       onConnect: () => {
-        console.log('STOMP connected');
+        console.log('STOMP connected successfully');
+        setIsConnected(true);
+        
+        // 채팅방 구독
         stomp.subscribe(`/topic/room/${roomId}`, (frame) => {
           try {
+            console.log('Received message:', frame.body);
             const incomingMessage: MessageInfo = JSON.parse(frame.body);
+            
             setMessages((prevMessages) => {
+              // 중복 메시지 체크
               if (prevMessages.some((msg) => msg.id === incomingMessage.id)) {
+                console.log('Duplicate message, ignoring:', incomingMessage.id);
                 return prevMessages;
               }
+              console.log('Adding new message:', incomingMessage);
               return [...prevMessages, incomingMessage];
             });
           } catch (e) {
-            console.warn('STOMP parse error', e);
+            console.error('STOMP message parse error:', e);
           }
         });
       },
-      onStompError: (f) => console.warn('STOMP error:', f.headers['message']),
+      onDisconnect: () => {
+        console.log('STOMP disconnected');
+        setIsConnected(false);
+      },
+      onStompError: (frame) => {
+        console.error('STOMP error:', frame.headers['message']);
+        setIsConnected(false);
+      },
+      onWebSocketError: (event) => {
+        console.error('WebSocket error:', event);
+        setIsConnected(false);
+      },
     });
 
     stomp.activate();
     stompRef.current = stomp;
 
     return () => {
+      console.log('Cleaning up WebSocket connection');
       if (stompRef.current) {
         stompRef.current.deactivate();
       }
+      setIsConnected(false);
     };
   }, [roomId, loginUser?.id, getAllChatMessages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const text = input.trim();
-    if (!text || !stompRef.current?.connected || !roomId || !loginUser?.id) {
+    if (!text) {
+      Alert.alert('알림', '메시지를 입력해주세요.');
+      return;
+    }
+
+    if (!stompRef.current?.connected || !roomId || !loginUser?.id) {
       Alert.alert('알림', '메시지를 보낼 수 없습니다. 연결 상태를 확인해주세요.');
       return;
     }
 
-    stompRef.current.publish({
-      destination: '/app/chat/sendMessage',
-      body: JSON.stringify({
-        roomId,
-        senderId: loginUser.id,
-        message: text,
-        messageType: MessageType.Text,
-      }),
-      headers: { 'content-type': 'application/json' },
-    });
+    console.log('Sending message:', text, 'from user:', loginUser.id, 'to room:', roomId);
 
-    setInput('');
+    // 임시 메시지 ID 생성 (실제로는 서버에서 생성됨)
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const tempMessage: MessageInfo = {
+      id: tempId,
+      roomId: roomId,
+      sender: loginUser.id,
+      senderUsername: loginUser.name,
+      message: text,
+      timestamp: new Date().toISOString(),
+      messageType: MessageType.Text,
+      imageUrl: '',
+    };
+
+    try {
+      // 즉시 UI에 메시지 추가 (낙관적 업데이트)
+      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      setInput(''); // 입력창 즉시 클리어
+
+      // 서버로 메시지 전송
+      stompRef.current.publish({
+        destination: '/app/chat/sendMessage',
+        body: JSON.stringify({
+          roomId,
+          senderId: loginUser.id,
+          message: text,
+          messageType: MessageType.Text,
+        }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+      console.log('Message sent successfully');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // 전송 실패 시 임시 메시지 제거
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== tempId)
+      );
+      setInput(text); // 입력창에 메시지 복원
+      Alert.alert('오류', '메시지 전송에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   // 채팅방이 없는 경우의 UI
@@ -1322,6 +1386,13 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
               <Badge variant={chatRoomStatus === RecruitStatus.RecruitOver ? 'default' : 'secondary'} style={chatRoomStatus === RecruitStatus.RecruitOver ? { backgroundColor: '#F7B32B' } : chatRoomStatus === RecruitStatus.Recruiting ? { backgroundColor: '#22c55e' } : {}}>
                 {chatRoomStatus === RecruitStatus.RecruitOver ? '매칭 완료' : chatRoomStatus === RecruitStatus.Recruiting ? '매칭 준비중' : '대기중'}
               </Badge>
+              {/* 연결 상태 표시 */}
+              <View style={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: 4, 
+                backgroundColor: isConnected ? '#22c55e' : '#ef4444' 
+              }} />
             </View>
           </View>
           <TouchableOpacity onPress={onNavigateToSettings}><Ionicons name="settings" size={18} color="#6b7280" /></TouchableOpacity>
@@ -1332,16 +1403,20 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} // Adjust this offset if header height changes
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Scrollable messages */}
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, gap: 16 }}
+          onContentSizeChange={scrollToBottom}
         >
           {messages.map((msg, index) => {
+            // 숫자 타입으로 비교하도록 확실히 변환
             const isOwn = Number(msg.sender) === Number(loginUser?.id);
+            console.log('Message render - sender:', msg.sender, 'loginUser:', loginUser?.id, 'isOwn:', isOwn);
+            
             return (
               <View key={msg.id ? `${msg.id}-${index}` : `msg-${index}`}>
                 {msg.message && (
@@ -1350,12 +1425,22 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
                       {!isOwn && (
                         <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 4 }}>{msg.senderUsername}</Text>
                       )}
-                      <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: isOwn ? '#F7B32B' : '#f3f4f6' }}>
+                      <View style={{ 
+                        paddingHorizontal: 12, 
+                        paddingVertical: 8, 
+                        borderRadius: 8, 
+                        backgroundColor: isOwn ? '#F7B32B' : '#f3f4f6' 
+                      }}>
                         <Text style={{ fontSize: 14, color: isOwn ? 'white' : '#374151' }}>
                           {msg.message}
                         </Text>
                       </View>
-                      <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{msg.timestamp}</Text>
+                      <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                        {new Date(msg.timestamp).toLocaleTimeString('ko-KR', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </Text>
                     </View>
                   </View>
                 )}
@@ -1375,20 +1460,37 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
 
         {/* Message input area */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#e5e7eb', backgroundColor: '#ffffff' }}>
+          {/* 연결 상태 경고 */}
+          {!isConnected && (
+            <View style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fef3c7', borderRadius: 6, marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: '#92400e', textAlign: 'center' }}>
+                연결이 끊어졌습니다. 재연결 중...
+              </Text>
+            </View>
+          )}
+          
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
               placeholder="메시지를 입력하세요..."
               value={input}
               onChangeText={setInput}
               onSubmitEditing={handleSendMessage}
-              style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, fontSize: 14 }}
+              style={{ 
+                flex: 1, 
+                paddingHorizontal: 12, 
+                paddingVertical: 8, 
+                borderWidth: 1, 
+                borderColor: '#e5e7eb', 
+                borderRadius: 8, 
+                fontSize: 14 
+              }}
             />
             <Button
               onPress={handleSendMessage}
-              disabled={!input.trim()}
-              style={input.trim() ? { backgroundColor: '#F7B32B' } : { backgroundColor: '#f3f4f6' }}
+              disabled={!input.trim() || !isConnected}
+              style={input.trim() && isConnected ? { backgroundColor: '#F7B32B' } : { backgroundColor: '#f3f4f6' }}
             >
-              <Text style={{ color: input.trim() ? 'white' : '#9ca3af' }}>📤</Text>
+              <Text style={{ color: input.trim() && isConnected ? 'white' : '#9ca3af' }}>📤</Text>
             </Button>
           </View>
         </View>
