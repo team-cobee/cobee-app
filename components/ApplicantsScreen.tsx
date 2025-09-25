@@ -353,7 +353,7 @@ const filteredApplicants = useMemo(() => {
 
                         <Button
                           variant="outline"
-                          onPress={() => onNavigateToProfile?.(applicant.applyId)}
+                          onPress={() => onNavigateToProfile?.(applicant.publicProfileId)}
                           style={{ paddingHorizontal: 16, paddingVertical: 8 }}
                         >
                           <Text style={{ fontSize: 14 }}>👤 프로필 보기</Text>

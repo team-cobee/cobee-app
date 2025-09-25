@@ -284,6 +284,7 @@ export default function NotificationScreen({ onBack, onNavigateToJob, onNavigate
       }
       );
       setChatRoomInfo(res.data ?? res.data.data);
+      Alert.alert("채팅방에 조인됐습니다!")
       console.log(res.data);
     } catch {
       console.log("채팅방 수락 불가능");

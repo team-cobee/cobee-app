@@ -996,12 +996,12 @@ export default function MapScreen({
     loadRecruitsRef.current = () => {
       const hasFilters = Object.keys(appliedFilters).length > 0;
       const center = initialCenterRef.current;
-      // if (hasFilters) {
-      //   const filterParams = buildFilterParams();
-      //   fetchFiltered(filterParams);
-      // } else {
-      //   fetchFiltered();
-      // }
+      if (hasFilters) {
+        const filterParams = buildFilterParams();
+        fetchFiltered(filterParams);
+      } else {
+        fetchFiltered();
+      }
     };
   }, []);
   //appliedFilters, buildFilterParams, fetchFiltered
@@ -1449,8 +1449,8 @@ export default function MapScreen({
           values={tempDepositRange}
           onValuesChange={(vals) => setTempDepositRange([Math.round(vals[0]), Math.round(vals[1])])}
           min={0}
-          max={5000}
-          step={50}
+          max={500}
+          step={10}
           allowOverlap={false}
           snapped
         />
