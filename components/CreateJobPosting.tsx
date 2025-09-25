@@ -4,7 +4,7 @@ import { AddressResult } from '../components/AddressSearchModal';
 import AddressSearchModal from '../components/AddressSearchModal';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions,
-  Image, Platform
+  Image, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,8 +116,6 @@ export default function CreateJobPosting({
   onBack, onSuccess, onComplete, editJobId,
 }: CreateJobPostingProps) {
   const [step, setStep] = useState(1);
-//  const [newImageUrl, setNewImageUrl] = useState('');
-  const [open, setOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -125,13 +123,35 @@ export default function CreateJobPosting({
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      quality: 1,
+      quality: 0.8, // 품질을 낮춰서 HEIC 호환성 개선
+      allowsEditing: false,
+      // HEIC 파일을 JPEG로 강제 변환
+      exif: false,
+      base64: false,
     });
 
     if (!result.canceled) {
-      setSelectedImages([...selectedImages, ...result.assets]);
+      // HEIC 파일 필터링 및 경고
+      const validAssets = result.assets.filter(asset => {
+        const isHeic = asset.mimeType === 'image/heic' || asset.uri.toLowerCase().includes('.heic');
+        if (isHeic) {
+          console.log('HEIC 파일 감지, 건너뛰기:', asset.fileName);
+          return false; // HEIC 파일은 제외
+        }
+        return true;
+      });
+
+      if (validAssets.length !== result.assets.length) {
+        Alert.alert(
+          '알림', 
+          'HEIC 형식의 이미지는 현재 지원하지 않습니다.\n설정에서 카메라 형식을 "호환성 우선"으로 변경해주세요.',
+          [{ text: '확인' }]
+        );
+      }
+
+      setSelectedImages([...selectedImages, ...validAssets]);
     }
   };
 
@@ -139,13 +159,19 @@ export default function CreateJobPosting({
     setSelectedImages(selectedImages.filter((_, i) => i !== index));
   };
 
-
 // 주소 선택 핸들러
 const handleAddressSelect = (addr: AddressResult) => {
   console.log('주소 선택됨:', addr);
+  console.log('설정할 주소:', addr.fullAddress);
+  
   setSelectedAddress(addr.fullAddress);        // 선택된 주소 저장
   setShowAddressModal(false);                  // 모달 닫기
-  setFormData((prev) => ({ ...prev, address: addr.fullAddress })); // ✅ input 값 자동완성
+  setFormData((prev) => ({ 
+    ...prev, 
+    address: addr.fullAddress 
+  })); // ✅ input 값 자동완성
+  
+  console.log('formData.address 업데이트됨:', addr.fullAddress);
 };
 
 
@@ -195,7 +221,7 @@ const handleAddressSelect = (addr: AddressResult) => {
   //       }
   
   //       const result = await ImagePicker.launchImageLibraryAsync({
-  //         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //         mediaTypes: ['images'],
   //         base64: false,
   //         quality: 0.9,
   //         allowsEditing: false,
@@ -221,7 +247,10 @@ const handleAddressSelect = (addr: AddressResult) => {
 
   const totalSteps = 5;
 
-  const nextStep = () => (step < totalSteps ? setStep(step + 1) : handleSubmit());
+  const nextStep = () => {
+    console.log('nextStep called, step:', step, 'totalSteps:', totalSteps);
+    return step < totalSteps ? setStep(step + 1) : handleSubmit();
+  };
   const prevStep = () => setStep(step - 1);
 
   /** 단계별 유효성 검사 */
@@ -256,55 +285,95 @@ const handleAddressSelect = (addr: AddressResult) => {
 
   /** 제출 → /recruits/with-images (POST) */
   const handleSubmit = async () => {
-      const requestDto: Omit<RecruitRequest, 'imgUrl'> & {imgUrl?: string[]} = {
-        title: formData.title,
-        recruitCount: Number(formData.recruitCount),
-        rentCostMin: Number(formData.depositMin),
-        rentCostMax: Number(formData.depositMax),
-        monthlyCostMin: Number(formData.monthlyRentMin),
-        monthlyCostMax: Number(formData.monthlyRentMax),
-        minAge: Number(formData.ageMin),
-        maxAge: Number(formData.ageMax),
-        lifestyle: toLifestyleEnum(formData.lifestyle) as RecruitRequest['lifestyle'],
-        personality: toPersonalityEnum(formData.personality) as RecruitRequest['personality'],
-        isSmoking: toSmokingEnum(formData.smoking) as RecruitRequest['isSmoking'],
-        isSnoring: toSnoringEnum(formData.snoring) as RecruitRequest['isSnoring'],
-        isPetsAllowed: toPetsEnum(formData.pets) as RecruitRequest['isPetsAllowed'],
-        hasRoom: formData.hasRoom === 'has',
-        address: formData.address,
-        detailDescription: formData.detailDescription,
-        additionalDescription: formData.additionalDescription,
+    console.log('handleSubmit called');
+    try {
+      console.log('Creating requestDto...');
+      const requestDto: Omit<RecruitRequest, 'imgUrl'> & { imgUrl?: string[] } = {
+          title: formData.title,
+          recruitCount: Number(formData.recruitCount),
+          rentCostMin: Number(formData.depositMin),
+          rentCostMax: Number(formData.depositMax),
+          monthlyCostMin: Number(formData.monthlyRentMin),
+          monthlyCostMax: Number(formData.monthlyRentMax),
+          minAge: Number(formData.ageMin),
+          maxAge: Number(formData.ageMax),
+          lifestyle: toLifestyleEnum(formData.lifestyle) as RecruitRequest['lifestyle'],
+          personality: toPersonalityEnum(formData.personality) as RecruitRequest['personality'],
+          isSmoking: toSmokingEnum(formData.smoking) as RecruitRequest['isSmoking'],
+          isSnoring: toSnoringEnum(formData.snoring) as RecruitRequest['isSnoring'],
+          isPetsAllowed: toPetsEnum(formData.pets) as RecruitRequest['isPetsAllowed'],
+          hasRoom: formData.hasRoom === 'has',
+          address: formData.address,
+          detailDescription: formData.detailDescription,
+          additionalDescription: formData.additionalDescription,
       };
-
+      
+      console.log('RequestDto created:', requestDto);
+      
+      // The backend expects imgUrl to be part of the DTO, but it will be empty since files are sent separately
       requestDto.imgUrl = [];
 
-
+      console.log('Creating FormData...');
       const form = new FormData();
-      form.append('request', new Blob([JSON.stringify(requestDto)], { type: 'application/json' }));
-      selectedImages.forEach((image) => {
-        const file = {
-          uri: image.uri,
-          type: image.mimeType || 'image/jpeg',
-          name: image.fileName || `image-${Date.now()}.jpg`,
-      };
-      form.append('images', file as any);
-    });
+      
+      // React Native에서 JSON을 @RequestPart로 보내는 올바른 방법
+      form.append('request', {
+        string: JSON.stringify(requestDto),
+        type: 'application/json'
+      } as any);
 
-    try {
+      console.log('Adding images to FormData...', selectedImages.length);
+      selectedImages.forEach((image, index) => {
+        console.log(`Adding image ${index}:`, image.uri, 'mimeType:', image.mimeType);
+        
+        // Ensure proper MIME type and convert HEIC to JPEG
+        let mimeType = image.mimeType || 'image/jpeg';
+        if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+          mimeType = 'image/jpeg';
+        }
+        if (mimeType === 'application/octet-stream' || !mimeType.startsWith('image/')) {
+          mimeType = image.uri.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
+        }
+        
+        const file = {
+          uri: Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri,
+          type: mimeType,
+          name: image.fileName || `image-${Date.now()}-${index}.${mimeType === 'image/png' ? 'png' : 'jpg'}`,
+        };
+        console.log('File object:', file);
+        form.append('images', file as any);
+      });
+
+      console.log('Sending request to /recruits/with-images...');
+      console.log('FormData keys:', Object.keys(form));
+      
       const res = await api.post('/recruits/with-images', form, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      console.log('Response status:', res.status);
+      console.log('Response headers:', res.headers);
 
+      console.log('Response received:', res.data);
+      console.log('Response data type:', typeof res.data);
+      console.log('Response data keys:', res.data ? Object.keys(res.data) : 'null/undefined');
+      
       const data = res.data?.data ?? res.data;
       const postId = data?.postId ?? data?.id;
+      
+      console.log('Extracted data:', data);
+      console.log('Extracted postId:', postId);
 
+      console.log('Success! PostId:', postId);
       Alert.alert('성공', '구인글이 등록되었습니다.');
       onComplete(String(postId ?? `post_${Date.now()}`));
       
     } catch (e: any) {
-      console.error(JSON.stringify(e.response?.data, null, 2));
+      console.error('Error in handleSubmit:', e);
+      console.error('Error response:', e.response?.data);
+      console.error('Error message:', e?.message);
       Alert.alert('실패', e?.message ?? '등록 중 오류가 발생했습니다.');
     }
   };
@@ -689,8 +758,8 @@ const renderStep4 = () => (
             alignItems: 'center',
           }}
         >
-          <Text style={{ fontSize: 16, color: selectedAddress ? '#000' : '#9ca3af' }}>
-            {selectedAddress || '주소를 검색해주세요'}
+          <Text style={{ fontSize: 16, color: (selectedAddress || formData.address) ? '#000' : '#9ca3af' }}>
+            {selectedAddress || formData.address || '주소를 검색해주세요'}
           </Text>
           <Ionicons name="search" size={16} color="#9ca3af" />
         </TouchableOpacity>
@@ -704,8 +773,19 @@ const renderStep4 = () => (
             value={formData.address}
             onChangeText={(t) => setFormData({ ...formData, address: t })} // ✅ 실제로 상태 업데이트
           />
-          <TouchableOpacity onPress={() => setOpen(true)} style={{ marginTop: 8 }}>
-            <Text style={ {backgroundColor: '#111827', borderRadius: 8, height: 44, paddingHorizontal: 16, justifyContent: 'center'} }>검색</Text>
+          <TouchableOpacity 
+            onPress={() => setShowAddressModal(true)} 
+            style={{ 
+              backgroundColor: '#111827', 
+              borderRadius: 8, 
+              height: 44, 
+              paddingHorizontal: 16, 
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: 8 
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>검색</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -734,8 +814,8 @@ const renderStep4 = () => (
                 >
                   <Ionicons name="close-circle" size={20} color="white" />
                 </TouchableOpacity>
-            </View>
-          ))}
+              </View>
+            ))}
           </ScrollView>
         </View>
       </View>
@@ -833,7 +913,14 @@ const renderStep4 = () => (
                 이전
               </Button>
             )}
-            <Button onPress={nextStep} disabled={step !== totalSteps && !isStepValid()} style={step > 1 ? styles.buttonFlex : undefined}>
+            <Button 
+              onPress={() => {
+                console.log('Button pressed, step:', step, 'isValid:', isStepValid(), 'disabled:', step !== totalSteps && !isStepValid());
+                nextStep();
+              }} 
+              disabled={step !== totalSteps && !isStepValid()} 
+              style={step > 1 ? styles.buttonFlex : undefined}
+            >
               {step === totalSteps ? '완료' : '다음'}
             </Button>
           </View>

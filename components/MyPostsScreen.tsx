@@ -186,11 +186,27 @@ export default function MyPostsScreen({ onBack, onNavigateToJob, onNavigateToApp
               <CardContent style={{ padding: 0 }}>
                 <TouchableOpacity onPress={() => handleCardClick(post.postId)} activeOpacity={0.7}>
                   <View style={{ position: 'relative' }}>
-                    <Image 
-                      //source={{ uri: post.imgUrl[0] }}
-                      style={{ width: '100%', height: 200, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}
-                      resizeMode="cover"
-                    />
+                    {post.imgUrl && post.imgUrl.length > 0 ? (
+                      <Image 
+                        source={{ uri: `https://storage.googleapis.com/${post.imgUrl[0]}` }}
+                        style={{ width: '100%', height: 200, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}
+                        resizeMode="cover"
+                        onError={(error) => console.log('Image load error:', error.nativeEvent.error)}
+                      />
+                    ) : (
+                      <View style={{ 
+                        width: '100%', 
+                        height: 200, 
+                        borderTopLeftRadius: 8, 
+                        borderTopRightRadius: 8,
+                        backgroundColor: '#f3f4f6',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Ionicons name="image-outline" size={48} color="#9ca3af" />
+                        <Text style={{ color: '#9ca3af', marginTop: 8 }}>이미지 없음</Text>
+                      </View>
+                    )}
                     <View style={{ position: 'absolute', top: 12, left: 12 }}>
                       <Badge style={{
                         backgroundColor: post.status === RecruitStatus.Recruiting ? 'rgba(34, 197, 94, 0.1)' : post.status === RecruitStatus.RecruitOver ? 'rgba(37, 99, 235, 0.1)' : 'rgba(156, 163, 175, 0.1)',
