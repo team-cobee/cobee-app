@@ -23,6 +23,7 @@ import {
   Alert,
   StyleSheet,
   SafeAreaView,
+  Keyboard,
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -234,7 +235,6 @@ const AvatarFallback = ({
   const [loading, setLoading] = useState(true);
   const [logined, setAuthor] = useState<author>();
   const [publicProfile, setPublicProfile] = useState<profile>();
-  const [loginUser, setLoginUser] = useState<author | null>(null);
 
   const ageText = logined?.birthdate ? `${getAge(logined.birthdate)}세` : '';
 
@@ -443,12 +443,19 @@ const getAllComments = async (postId : number) => {
 
   // 원댓글 추가
   const handleAddComment = () => {
+    if (!newComment.trim()) return;
     postComment(newComment, null);
+    setNewComment('');
+    // Keyboard.dismiss() 제거 - 키보드를 강제로 닫지 않음
   };
 
   // 대댓글 추가
   const handleAddReply = (parentCommentId: number) => {
-    postComment(newReply,parentCommentId);
+    if (!newReply.trim()) return;
+    postComment(newReply, parentCommentId);
+    setNewReply('');
+    setReplyingTo(null);
+    // Keyboard.dismiss() 제거
   };
 
   // 원댓글만 추출
@@ -512,8 +519,12 @@ const getAllComments = async (postId : number) => {
         <View style={styles.headerButton} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContentContainer, {flexGrow: 1}]}>
-        {/* 방 이미지 캐러셀 */}
+      {/* <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.scrollContentContainer, {flexGrow: 1}]}> */}
+      <ScrollView 
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        contentContainerStyle={[styles.scrollContentContainer, {flexGrow: 1}]}>
+        {/* 방 이미지 캐러셀 */} 
         {recruit.imgUrl && recruit.imgUrl.length > 0 && (
           <View style={{ width: screenWidth, height: screenWidth * 0.5625 }}>
             <Image
@@ -862,14 +873,20 @@ const getAllComments = async (postId : number) => {
 
               {/* 원댓글 입력 */}
               <View style={[styles.divider, { marginVertical: 16 }]} />
-              <View style={styles.inputContainer}>
+              <View style={styles.inputContainer} pointerEvents="box-none">
                 <TextInput
                   placeholder="댓글을 입력하세요..."
                   value={newComment}
                   onChangeText={setNewComment}
                   style={styles.textInput}
                   onSubmitEditing={handleAddComment}
+                  returnKeyType="send"
+                  blurOnSubmit={false}
+                  autoCorrect={false}
+                  enablesReturnKeyAutomatically={true}
+                  multiline={false}
                 />
+
                 <Button
                   onPress={handleAddComment}
                   disabled={!newComment.trim()}

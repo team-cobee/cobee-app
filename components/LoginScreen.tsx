@@ -168,11 +168,11 @@ export default function LoginScreen({ onSkip, onSignup }: LoginScreenProps) {
           </TouchableOpacity>
         </View> */}
 
-        {/* {onSkip && (
+        {onSkip && (
           <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
             <Text style={styles.skipText}>다음에 하기</Text>
           </TouchableOpacity>
-        )} */}
+        )} 
       </View>
 
       {/* 풀스크린 WebView */}

@@ -1141,18 +1141,6 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
       scrollToBottom();
     }
   }, [messages, scrollToBottom]);
-
-  const getAllChatMessages = useCallback(async (currentRoomId: number) => {
-    try {
-      console.log('Fetching chat history for room:', currentRoomId);
-      const res = await api.get(`/chat/rooms/history/${currentRoomId}`);
-      console.log('Chat history response:', res.data);
-      setMessages(res.data.data || []);
-    } catch (e) {
-      console.error("Failed to fetch chat history", e);
-      setMessages([]);
-    }
-  }, []);
   
   const getUserInfo = useCallback(async () => {
     try {
@@ -1192,6 +1180,63 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
     }
   }, []);
 
+    const handleSendMessage = async () => {
+    const text = input.trim();
+    if (!text) {
+      Alert.alert('알림', '메시지를 입력해주세요.');
+      return;
+    }
+
+    if (!stompRef.current?.connected || !roomId || !loginUser?.id) {
+      Alert.alert('알림', '메시지를 보낼 수 없습니다. 연결 상태를 확인해주세요.');
+      return;
+    }
+
+    console.log('Sending message:', text, 'from user:', loginUser.id, 'to room:', roomId);
+
+    // 임시 메시지 ID 생성 (실제로는 서버에서 생성됨)
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const tempMessage: MessageInfo = {
+      id: tempId,
+      roomId: roomId,
+      sender: loginUser.id,
+      senderUsername: loginUser.name,
+      message: text,
+      timestamp: new Date().toISOString(),
+      messageType: MessageType.Text,
+      imageUrl: '',
+    };
+
+    try {
+      // 즉시 UI에 메시지 추가 (낙관적 업데이트)
+      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      setInput(''); // 입력창 즉시 클리어
+
+      // 서버로 메시지 전송
+      stompRef.current.publish({
+        destination: '/app/chat/sendMessage',
+        body: JSON.stringify({
+          roomId,
+          senderId: loginUser.id,
+          message: text,
+          messageType: MessageType.Text,
+        }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+      console.log('Message sent successfully');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // 전송 실패 시 임시 메시지 제거
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== tempId)
+      );
+      setInput(text); // 입력창에 메시지 복원
+      Alert.alert('오류', '메시지 전송에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+
   useEffect(() => {
     getUserInfo();
     getMyChatInfo();
@@ -1202,6 +1247,18 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
       getRecruitInfo(chatRoomInfo.postId);
     }
   }, [chatRoomInfo, getRecruitInfo]);
+
+    const getAllChatMessages = useCallback(async (currentRoomId: number) => {
+    try {
+      console.log('Fetching chat history for room:', currentRoomId);
+      const res = await api.get(`/chat/rooms/history/${currentRoomId}`);
+      console.log('Chat history response:', res.data);
+      setMessages(res.data.data || []);
+    } catch (e) {
+      console.error("Failed to fetch chat history", e);
+      setMessages([]);
+    }
+  }, [handleSendMessage]);  // 보낼때마다 모두 보이게 수정 시도 1 
 
   useEffect(() => {
     if (!roomId || !loginUser?.id) {
@@ -1270,63 +1327,8 @@ export default function ChatScreen({ onBack, onNavigateToSettings, onNavigateToC
       }
       setIsConnected(false);
     };
-  }, [roomId, loginUser?.id, getAllChatMessages]);
+  }, [roomId, loginUser?.id, getAllChatMessages]);  
 
-  const handleSendMessage = async () => {
-    const text = input.trim();
-    if (!text) {
-      Alert.alert('알림', '메시지를 입력해주세요.');
-      return;
-    }
-
-    if (!stompRef.current?.connected || !roomId || !loginUser?.id) {
-      Alert.alert('알림', '메시지를 보낼 수 없습니다. 연결 상태를 확인해주세요.');
-      return;
-    }
-
-    console.log('Sending message:', text, 'from user:', loginUser.id, 'to room:', roomId);
-
-    // 임시 메시지 ID 생성 (실제로는 서버에서 생성됨)
-    const tempId = `temp-${Date.now()}-${Math.random()}`;
-    const tempMessage: MessageInfo = {
-      id: tempId,
-      roomId: roomId,
-      sender: loginUser.id,
-      senderUsername: loginUser.name,
-      message: text,
-      timestamp: new Date().toISOString(),
-      messageType: MessageType.Text,
-      imageUrl: '',
-    };
-
-    try {
-      // 즉시 UI에 메시지 추가 (낙관적 업데이트)
-      setMessages(prevMessages => [...prevMessages, tempMessage]);
-      setInput(''); // 입력창 즉시 클리어
-
-      // 서버로 메시지 전송
-      stompRef.current.publish({
-        destination: '/app/chat/sendMessage',
-        body: JSON.stringify({
-          roomId,
-          senderId: loginUser.id,
-          message: text,
-          messageType: MessageType.Text,
-        }),
-        headers: { 'content-type': 'application/json' },
-      });
-
-      console.log('Message sent successfully');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      // 전송 실패 시 임시 메시지 제거
-      setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.id !== tempId)
-      );
-      setInput(text); // 입력창에 메시지 복원
-      Alert.alert('오류', '메시지 전송에 실패했습니다. 다시 시도해주세요.');
-    }
-  };
 
   // 채팅방이 없는 경우의 UI
   if (!hasRoom) {

@@ -5,6 +5,7 @@ import { getAccessToken } from '@/api/tokenStorage';
 import { Dimensions } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { KeyboardAvoidingView, Platform } from 'react-native';
+import { Animated } from 'react-native';
 
 import {
   View,
@@ -97,7 +98,7 @@ interface form {
   ageMax: number| null,
   lifestyle: Lifestyle | null,
   personality: Personality| null,
-  smokingPreference: boolean |null,
+  smokingPreference: boolean | null,
   snoringPreference: boolean |null,
   maxRoommates: number| null,
   petPreference: boolean |null,
@@ -157,6 +158,7 @@ export default function SignupScreen({ onSignup, onBack, onComplete }: SignupScr
   const [preferInfo, setPreferInfo] = useState<createUserPreferencesRequest | null>(null);
   const [formData, setFormData] = useState<form>(INITIAL_FORM);
   const [checkingMe, setCheckingMe] = useState(true);
+  const spinValue = useRef(new Animated.Value(0)).current;
 
   //-- 공개 프로필 작성용 --//
   const [openLifestyle, setOpenLifestyle]     = useState(false);
@@ -196,8 +198,8 @@ const personalityOptions = [
   ];
 
   const snoringOptions = [
-    { value: Snoring.None, label: '안함' },           // None = 코골이 안함
-    { value: Snoring.Impossible, label: '코골이함' }, // Impossible = 코골이 불가능(?)
+    { value: Smoking.Impossible, label: '안함' },           // None = 코골이 안함
+    { value: Smoking.None, label: '코골이함' }, // Impossible = 코골이 불가능(?)
   ];
 
   const petOptions = [
@@ -424,9 +426,9 @@ function buildUserPreferencesPayload(form: typeof formData): createUserPreferenc
     additionalInfo: form.info || "",
     lifeStyle: form.lifestyle as Lifestyle,
     personality: form.personality as Personality,
-    smokingPreference: form.smokingPreference === true,  // boolean
-    snoringPreference: form.snoringPreference === true,  // boolean
-    cohabitantCount: form.maxRoommates ?? 2,
+    smokingPreference: form?.smokingPreference as boolean,  // boolean
+    snoringPreference: form?.snoringPreference as boolean,  // boolean
+    cohabitantCount: form.maxRoommates as number,
     petPreference: form.petPreference === true,
   };
 }
@@ -476,17 +478,32 @@ const handleFinishSignup = async () => {
   }
 };
 
-  useEffect(() => {
-  return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    };
-  }, []);
-
   const [uploadState, setUploadState] = useState({
     isUploading: false,
     isProcessing: false,
     error: null as string | null
   });
+
+    useEffect(() => {
+  return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+  const spin = () => {
+    spinValue.setValue(0);
+    Animated.timing(spinValue, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start(() => spin());
+  };
+  
+  if (uploadState.isProcessing) {
+    spin();
+  }
+}, [uploadState.isProcessing]);
 
   const [ocrInfo, setOcrInfo] = useState<OcrVerificationResponseDto | null>(null);
 
@@ -762,14 +779,20 @@ const handleFinishSignup = async () => {
                 ) : uploadState.isProcessing ? (
                   <View style={{ gap: 16 }}>
                     <View style={{ width: 64, height: 64, alignSelf: 'center' }}>
-                      <View style={{
+                      <Animated.View style={{
                         width: 64,
                         height: 64,
                         borderWidth: 4,
                         borderColor: '#bfdbfe',
                         borderTopColor: '#2563eb',
                         borderRadius: 32,
-                        alignSelf: 'center'
+                        alignSelf: 'center',
+                        transform: [{
+                          rotate: spinValue.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '360deg']
+                          })
+                        }]
                       }} />
                     </View>
                     <View style={{ alignItems: 'center' }}>
@@ -902,7 +925,8 @@ const handleFinishSignup = async () => {
 
             <TouchableOpacity 
               onPress={nextStep}
-              disabled={!formData?.idVerified}
+              // disabled={!formData?.idVerified}
+              disabled={false}
               style={{
                 width: '100%',
                 paddingVertical: 16,
@@ -1094,10 +1118,8 @@ const handleFinishSignup = async () => {
                       </Text>
                     </TouchableOpacity>
                   ))}
-
                 </View>
               </View>
-
 
 <View>
   <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 12 }}>코골이</Text>
@@ -1207,17 +1229,24 @@ const handleFinishSignup = async () => {
               >
                 <Text style={{ fontSize: 16 }}>이전</Text>
               </TouchableOpacity>
+
               <TouchableOpacity 
                 onPress={nextStep}
-                disabled={!formData?.smokingPreference || !formData.snoringPreference || !formData.petPreference}
+                disabled={
+                  formData?.smokingPreference === null || 
+                  formData?.snoringPreference === null || 
+                  formData?.petPreference === null
+                }
                 style={{
                   flex: 1,
                   borderRadius: 8,
                   paddingVertical: 16,
                   alignItems: 'center',
-                  backgroundColor: formData?.smokingPreference && formData?.snoringPreference && formData?.petPreference
-                    ? '#E6940C' 
-                    : 'rgba(247, 179, 43, 0.5)'
+                  backgroundColor: (
+                    formData?.smokingPreference !== null && 
+                    formData?.snoringPreference !== null && 
+                    formData?.petPreference !== null
+                  ) ? '#E6940C' : 'rgba(247, 179, 43, 0.5)'
                 }}
               >
                 <Text style={{ fontSize: 16, color: 'white', fontWeight: '600' }}>다음</Text>
@@ -1227,38 +1256,38 @@ const handleFinishSignup = async () => {
         );
 
       case 4:
-  return (
-    <View style={{ gap: 24 }}>
-      <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 20, fontWeight: '600' }}>공개 프로필 작성</Text>
-        <Text style={{ fontSize: 14, color: '#6b7280', marginTop: 8, textAlign: 'center' }}>
-          다른 사용자에게 보여질 프로필을 작성해주세요
-        </Text>
-      </View>
+      return (
+        <View style={{ gap: 24 }}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: '600' }}>공개 프로필 작성</Text>
+            <Text style={{ fontSize: 14, color: '#6b7280', marginTop: 8, textAlign: 'center' }}>
+              다른 사용자에게 보여질 프로필을 작성해주세요
+            </Text>
+          </View>
 
-      {/* 기본 정보 (OCR 자동 입력) */}
-      <SelectSection title="기본 정보 (자동 입력됨)">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-          <View style={{ flex: 1, minWidth: '45%' }}>
-            <Text style={{ fontSize: 14, color: '#6b7280' }}>이름</Text>
-            <Text style={{ fontSize: 14, fontWeight: '500' }}>
-              {ocrInfo?.name || formData?.extractedName}
-            </Text>
-          </View>
-          <View style={{ flex: 1, minWidth: '45%' }}>
-            <Text style={{ fontSize: 14, color: '#6b7280' }}>성별</Text>
-            <Text style={{ fontSize: 14, fontWeight: '500' }}>
-              {ocrInfo?.gender}
-            </Text>
-          </View>
-          <View style={{ flex: 1, minWidth: '45%' }}>
-            <Text style={{ fontSize: 14, color: '#6b7280' }}>나이</Text>
-            <Text style={{ fontSize: 14, fontWeight: '500' }}>
-              {ocrInfo?.birthDate ? formData?.extractedBirthDate : '희주'}
-            </Text>
-          </View>
-        </View>
-      </SelectSection>
+          {/* 기본 정보 (OCR 자동 입력) */}
+          <SelectSection title="기본 정보 (자동 입력됨)">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+              <View style={{ flex: 1, minWidth: '45%' }}>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>이름</Text>
+                <Text style={{ fontSize: 14, fontWeight: '500' }}>
+                  {ocrInfo?.name || formData?.extractedName}
+                </Text>
+              </View>
+              <View style={{ flex: 1, minWidth: '45%' }}>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>성별</Text>
+                <Text style={{ fontSize: 14, fontWeight: '500' }}>
+                  {ocrInfo?.gender}
+                </Text>
+              </View>
+              <View style={{ flex: 1, minWidth: '45%' }}>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>나이</Text>
+                <Text style={{ fontSize: 14, fontWeight: '500' }}>
+                  {ocrInfo?.birthDate ? formData?.extractedBirthDate : '희주'}
+                </Text>
+              </View>
+            </View>
+          </SelectSection>
 
       {/* 공개 프로필 입력 섹션 */}
       <SelectSection title="공개 프로필 입력">
@@ -1312,7 +1341,7 @@ const handleFinishSignup = async () => {
 
         {/* 추가 내용 */}
         <View>
-          <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8 }}>추가 내용 작성</Text>
+          <Text pointerEvents="box-none" style={{ fontSize: 14, fontWeight: '500', marginBottom: 8 }}>추가 내용 작성</Text>
           <TextInput
             multiline
             numberOfLines={4}
@@ -1328,6 +1357,7 @@ const handleFinishSignup = async () => {
               fontSize: 16,
               textAlignVertical: 'top',
               minHeight: 100,
+              paddingBottom: 20
             }}
           />
         </View>
