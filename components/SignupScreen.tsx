@@ -262,7 +262,9 @@ function SelectBox<T extends string>({
   options: { value: T; label: string }[];
   onSelect: (v: T) => void;
 }) {
+  
   return (
+    
     <View style={{ marginBottom: 16 }}>
       <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8 }}>{label}</Text>
 
@@ -384,7 +386,8 @@ async function startOcrVerificationMultipart(file: { uri: string; name?: string;
   const form = new FormData();
   form.append('image', { uri: file.uri, name: filename, type: mime } as any);
 
-  const res = await api.post<{ message: string; code: string; data: OcrStartResponse }>(
+  try {
+    const res = await api.post<{ message: string; code: string; data: OcrStartResponse }>(
     '/ocr/verify', // 컨트롤러의 basePath가 /ocr 라고 가정
     form,
     {
@@ -397,6 +400,9 @@ async function startOcrVerificationMultipart(file: { uri: string; name?: string;
   );
   console.log(res.data.data);
   return res.data.data; // { taskId }
+} catch{
+
+}
 }
 
 // task 상태 조회
@@ -514,7 +520,7 @@ const handleFinishSignup = async () => {
   const ocrVerifyStart = async (file: { uri: string; name?: string; type?: string }) => {
     try {
       const data = await startOcrVerificationMultipart(file); 
-      return data.taskId;
+      return data?.taskId;
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -1347,7 +1353,11 @@ const handleFinishSignup = async () => {
             numberOfLines={4}
             placeholder="자신을 소개하는 글을 자유롭게 작성해주세요"
             value={formData?.info as string}
-            onChangeText={(value) => setFormData({ ...formData, info: value })}
+            onChangeText={(value) => setFormData(prev => ({ ...prev, info: value }))}
+            blurOnSubmit={false}
+            returnKeyType="default"
+            textBreakStrategy="simple"
+            scrollEnabled={true}
             style={{
               width: '100%',
               padding: 12,
@@ -1357,6 +1367,7 @@ const handleFinishSignup = async () => {
               fontSize: 16,
               textAlignVertical: 'top',
               minHeight: 100,
+              maxHeight: 150,
               paddingBottom: 20
             }}
           />
@@ -1487,6 +1498,11 @@ const handleFinishSignup = async () => {
   };
 
   return (
+    <KeyboardAvoidingView 
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={{ flex: 1 }}
+    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+  >
     <View style={{ flex: 1 }}>
       <View style={{
         flexDirection: 'row',
@@ -1507,10 +1523,12 @@ const handleFinishSignup = async () => {
       </View>
 
       <ScrollView 
-      style={{ flex: 1, padding: 24 }}
-      contentContainerStyle={{ paddingBottom: 48 }}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} 
+        style={{ flex: 1, padding: 24 }}
+        contentContainerStyle={{ paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        automaticallyAdjustKeyboardInsets={true}
+        automaticallyAdjustContentInsets={false}
       >
         {step < 5 && (
           <View style={{ marginBottom: 32 }}>
@@ -1553,6 +1571,6 @@ const handleFinishSignup = async () => {
         {renderStep()}
       </ScrollView>
     </View>
+    </KeyboardAvoidingView>
   );
-  
 }
