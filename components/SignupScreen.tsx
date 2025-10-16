@@ -1358,6 +1358,14 @@ const handleFinishSignup = async () => {
             returnKeyType="default"
             textBreakStrategy="simple"
             scrollEnabled={true}
+            onFocus={() => {
+              // TextInput 포커스 시 모든 SelectBox 닫기
+              setOpenLifestyle(false);
+              setOpenPersonality(false);
+              setOpenSmoking(false);
+              setOpenSnoring(false);
+              setOpenPets(false);
+            }}
             style={{
               width: '100%',
               padding: 12,
